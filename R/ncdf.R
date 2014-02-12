@@ -170,15 +170,6 @@ get.climdex.functions <- function(vars.list, fclimdex.compatible=TRUE) {
                  "climdex.dtr", "climdex.rx1day", "climdex.rx5day",
                  "climdex.sdii", "climdex.r10mm", "climdex.r20mm", "climdex.rnnmm", "climdex.cdd", "climdex.cwd", "climdex.r95ptot", "climdex.r99ptot", "climdex.prcptot",
                  "climdex.cdd", "climdex.cwd", "climdex.csdi", "climdex.wsdi")
-  func.names <- paste("climdex.pcic::", func.names)
-  names(func.names) <- c("fdETCCDI_yr", "suETCCDI_yr", "idETCCDI_yr", "trETCCDI_yr", "gslETCCDI_yr",
-                         "txxETCCDI_mon", "tnxETCCDI_mon", "txnETCCDI_mon", "tnnETCCDI_mon", "tn10pETCCDI_mon", "tx10pETCCDI_mon", "tn90pETCCDI_mon", "tx90pETCCDI_mon",
-                         "txxETCCDI_yr", "tnxETCCDI_yr", "txnETCCDI_yr", "tnnETCCDI_yr", "tn10pETCCDI_yr", "tx10pETCCDI_yr", "tn90pETCCDI_yr", "tx90pETCCDI_yr",
-                         "wsdiETCCDI_yr", "csdiETCCDI_yr",
-                         "dtrETCCDI_mon", "rx1dayETCCDI_mon", "rx5dayETCCDI_mon",
-                         "dtrETCCDI_yr", "rx1dayETCCDI_yr", "rx5dayETCCDI_yr",
-                         "sdiiETCCDI_yr", "r10mmETCCDI_yr", "r20mmETCCDI_yr", "r1mmETCCDI_yr", "cddETCCDI_yr", "cwdETCCDI_yr", "r95pETCCDI_yr", "r99pETCCDI_yr", "prcptotETCCDI_yr",
-                         "altcddETCCDI_yr", "altcwdETCCDI_yr", "altcsdiETCCDI_yr", "altwsdiETCCDI_yr")
   
   el <- list()
   af <- list(freq="annual")
@@ -198,8 +189,15 @@ get.climdex.functions <- function(vars.list, fclimdex.compatible=TRUE) {
                   el, el, el, r1mm.opts, cwdd.opts, cwdd.opts, el, el, el,
                   altcwdd.opts, altcwdd.opts, altwcsdi.opts, altwcsdi.opts)
 
-  ## FIXME: Use a smaller env.
-  func <- sapply(1:length(func.names), function(n) functional::Curry(match.fun(func.names[n]), options[[n]]), simplify=FALSE)
+  func <- lapply(1:length(func.names), function(n) functional::Curry(getFromNamespace(func.names[n], 'climdex.pcic'), options[[n]]))
+  names(func) <- c("fdETCCDI_yr", "suETCCDI_yr", "idETCCDI_yr", "trETCCDI_yr", "gslETCCDI_yr",
+                   "txxETCCDI_mon", "tnxETCCDI_mon", "txnETCCDI_mon", "tnnETCCDI_mon", "tn10pETCCDI_mon", "tx10pETCCDI_mon", "tn90pETCCDI_mon", "tx90pETCCDI_mon",
+                   "txxETCCDI_yr", "tnxETCCDI_yr", "txnETCCDI_yr", "tnnETCCDI_yr", "tn10pETCCDI_yr", "tx10pETCCDI_yr", "tn90pETCCDI_yr", "tx90pETCCDI_yr",
+                   "wsdiETCCDI_yr", "csdiETCCDI_yr",
+                   "dtrETCCDI_mon", "rx1dayETCCDI_mon", "rx5dayETCCDI_mon",
+                   "dtrETCCDI_yr", "rx1dayETCCDI_yr", "rx5dayETCCDI_yr",
+                   "sdiiETCCDI_yr", "r10mmETCCDI_yr", "r20mmETCCDI_yr", "r1mmETCCDI_yr", "cddETCCDI_yr", "cwdETCCDI_yr", "r95pETCCDI_yr", "r99pETCCDI_yr", "prcptotETCCDI_yr",
+                   "altcddETCCDI_yr", "altcwdETCCDI_yr", "altcsdiETCCDI_yr", "altwsdiETCCDI_yr")
 
   return(func[vars.list])
 }
