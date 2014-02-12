@@ -610,6 +610,8 @@ get.quantiles.object <- function(thresholds, idx) {
 #' @param thresholds.name.map A mapping from standardized names (tx10thresh, tn90thresh, etc) to NetCDF variable names.
 #' @param fclimdex.compatible Whether to make the results identical to those of fclimdex; this affects how the data in the base period is padded.
 #' @param projection A proj4 string representing the projection the data is in.
+#' @param f A list of objects of type \code{ncdf4}, consisting of the open input files. If missing, will be pulled from the global namespace.
+#' @param thresholds.netcdf A list of objects of type \code{ncdf4}, consisting of the open threshold files. If missing, will be pulled from the global namespace.
 #' 
 #' @note This function relies on an object named 'f' and containing the opened NetCDF files being part of the global namespace.
 #' 
@@ -617,7 +619,10 @@ get.quantiles.object <- function(thresholds, idx) {
 #' ## FIXME
 #'
 #' @export
-compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible=TRUE, projection=NULL) {
+compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible=TRUE, projection=NULL, f, thresholds.netcdf) {
+  f <- if(missing(f)) get("f", .GlobalEnv) else f
+  thresholds.netcdf <- if(missing(thresholds.netcdf)) get("thresholds.netcdf", .GlobalEnv) else thresholds.netcdf
+  
   ## Dimension order: Time, Space for each Var in list
   data.list <- sapply(names(v.f.idx), function(x) { gc(); get.data(f[[v.f.idx[x]]], variable.name.map[x], subset, src.units[x], dest.units[x], dim.axes) }, simplify=FALSE)
   gc()
@@ -713,6 +718,7 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
 #' @param src.units The source units to convert data from.
 #' @param dest.units The destination units to convert to.
 #' @param pad.data.with.first.last.values Whether to make the results identical to those of fclimdex; this affects how the data in the base period is padded.
+#' @param f A list of objects of type \code{ncdf4}, consisting of the open input files. If missing, will be pulled from the global namespace.
 #'
 #' @note This function relies on an object named 'f' and containing the opened NetCDF files being part of the global namespace.
 #'
@@ -720,7 +726,8 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
 #' ## FIXME
 #'
 #' @export
-get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, pad.data.with.first.last.values=FALSE) {
+get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, pad.data.with.first.last.values=FALSE, f) {
+  f <- if(missing(f)) get("f", .GlobalEnv) else f
   data.list <- lapply(names(v.f.idx), function(x) { gc(); get.data(f[[v.f.idx[x]]], variable.name.map[x], subset, src.units[x], dest.units[x], dim.axes) })
   gc()
 
@@ -973,8 +980,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
 
     snow::stopCluster(cluster)
   } else {
-    f <<- f
-    lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, pad.data.with.first.last.values=FALSE), x) })
+    lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, pad.data.with.first.last.values=FALSE, f), x) })
 
     lapply(f, ncdf4::nc_close)
   }
@@ -1101,12 +1107,10 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     snow::stopCluster(cluster)
   } else {
     ## Setup...
-    f <<- f
-    thresholds.netcdf <<- open.thresholds(thresholds.files)
-    thresholds.name.map <<- thresholds.name.map
+    thresholds.netcdf <- open.thresholds(thresholds.files)
     
     ## Meat...
-    lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, fclimdex.compatible, f.meta$projection), x, cdx.ncfile, f.meta$dim.size) })
+    lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size) })
 
     ## Clean-up.
     close.thresholds(thresholds.netcdf)

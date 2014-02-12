@@ -12,7 +12,6 @@ Imports:
     climdex.pcic,
     ncdf4.helpers (>= 0.3-3),
     PCICt,
-    abind,
     snow,
     udunits2,
     functional,
