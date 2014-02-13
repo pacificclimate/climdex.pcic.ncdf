@@ -131,17 +131,15 @@ get.climdex.variable.list <- function(source.data.present, time.resolution=c("al
     source.data.present <- c(source.data.present, "tavg")
 
   climdex.vars <- unlist(vars.by.src.data.reqd[source.data.present])
+  if(!is.null(climdex.vars.subset))
+    climdex.vars <- climdex.vars[climdex.vars %in% paste(climdex.vars.subset, "ETCCDI", sep="")]
 
   freq.lists <- list(c("mon", "yr"), c("yr"))
   dat <- switch(time.res,
                 all=unlist(lapply(climdex.vars, function(x) { paste(x, freq.lists[[(x %in% annual.only) + 1]], sep="_") })),
-                annual=paste(climdex.vars, "yr"),
-                monthly=paste(climdex.vars[!(climdex.vars %in% annual.only)], "mon"))
+                annual=paste(climdex.vars, "yr", sep="_"),
+                monthly=paste(climdex.vars[!(climdex.vars %in% annual.only)], "mon", sep="_"))
 
-  if(!is.null(climdex.vars.subset)) {
-    climdex.vars.subset <- paste(climdex.vars.subset, "ETCCDI", sep="")
-    dat <- dat[dat %in% climdex.vars.subset]
-  }
   names(dat) <- NULL
   
   return(dat)
@@ -403,20 +401,21 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
 }
 
 ## Get dim sizes, with checking to make sure sizes are all the same.
-get.dim.size <- function(f, v.list) {
-  dim.size.list <- lapply(1:3, function(i) { f[[i]]$var[[v.list[[i]]]]$varsize })
+get.dim.size <- function(f, v.f.idx, variable.name.map) {
+  dim.size.list <- lapply(names(v.f.idx), function(i) { f[[v.f.idx[i]]]$var[[variable.name.map[i]]]$varsize })
   stopifnot(all.the.same(dim.size.list))
   dim.size.list[[1]]
 }
 
 ## Get dim axes, with checking to make sure they all have same axes.
-get.dim.axes <- function(f, v.list) {
-  dim.axes.list <- lapply(1:3, function(i) { ncdf4.helpers::nc.get.dim.axes(f[[i]], v.list[[i]]) })
+get.dim.axes <- function(f, v.f.idx, variable.name.map) {
+  dim.axes.list <- lapply(names(v.f.idx), function(i) { ncdf4.helpers::nc.get.dim.axes(f[[v.f.idx[i]]], variable.name.map[i]) })
   stopifnot(all.the.same(dim.axes.list))
   dim.axes.list[[1]]
 }
 
 ## Get timeseries (as PCICt), with error checking to ensure input files have same TS.
+## FIXME: This will need to be revised for fixed time dimensions. Should be identified by axis.
 get.ts <- function(f) {
   ts.list <- lapply(lapply(f, ncdf4.helpers::nc.get.time.series), trunc, "days")
   stopifnot(all.the.same(ts.list))
@@ -863,7 +862,7 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
 #' @export
 get.var.file.idx <- function(variable.name.map, v.list) {
   v.f.idx <- sapply(variable.name.map, function(v) { which(sapply(v.list, function(vl) { v %in% vl })) }, simplify=FALSE)
-  v.f.idx <- v.f.idx[sapply(v.f.idx, length) > 0]
+  v.f.idx <- unlist(v.f.idx[sapply(v.f.idx, length) > 0])
   return(v.f.idx)
 }
 
@@ -875,7 +874,7 @@ create.file.metadata <- function(f, variable.name.map) {
 
   if(any(sapply(v.list, function(vl) { sum(variable.name.map %in% vl) }) == 0))
     stop("At least one input file doesn't contain any of the named variables.")
-  if(length(duplicated(unlist(v.f.idx))) > 0)
+  if(anyDuplicated(unlist(v.f.idx)))
     stop("Variable(s) present in more than one input file.")
 
   ## Get units and specify destination units
@@ -888,7 +887,7 @@ create.file.metadata <- function(f, variable.name.map) {
   if(projection == "")
     projection <- NULL
   
-  return(list(ts=get.ts(f), dim.size=get.dim.size(f, v.list), dim.axes=get.dim.axes(f, v.list),
+  return(list(ts=get.ts(f), dim.size=get.dim.size(f, v.f.idx, variable.name.map), dim.axes=get.dim.axes(f, v.f.idx, variable.name.map),
               src.units=sapply(names(v.f.idx), function(i) { f[[v.f.idx[i]]]$var[[variable.name.map[i]]]$units }),
               dest.units=dest.units, v.list=v.list, v.f.idx=v.f.idx, projection=projection))
 }
