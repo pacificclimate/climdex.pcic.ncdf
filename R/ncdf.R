@@ -1,3 +1,6 @@
+#' @importClassesFrom climdex.pcic climdexInput
+#' @import PCICt
+
 ## Parallel lapply across 'x', running remote.func, and filtering with local.filter.func .
 ## Processing is incremental, not batch, to improve parallel throughput and reduce memory consumption.
 parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL) {
@@ -720,34 +723,34 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
 #' @export
 get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, pad.data.with.first.last.values=FALSE, f) {
   f <- if(missing(f)) get("f", .GlobalEnv) else f
-  data.list <- lapply(names(v.f.idx), function(x) { gc(); get.data(f[[v.f.idx[x]]], variable.name.map[x], subset, src.units[x], dest.units[x], dim.axes) })
+  data.list <- sapply(names(v.f.idx), function(x) { gc(); get.data(f[[v.f.idx[x]]], variable.name.map[x], subset, src.units[x], dest.units[x], dim.axes) }, simplify=FALSE)
   gc()
 
   r <- 1:(dim(data.list[[1]])[2])
-  if(!is.null(data.list$tasmax)) {
-    if(!is.null(data.list$tasmin)) {
-      if(!is.null(data.list$pr)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tasmax[,x], data.list$tasmin[,x], data.list$pr[,x], ts, ts, ts, base.range, pad.data.with.first.last.values)))
+  if(!is.null(data.list$tmax)) {
+    if(!is.null(data.list$tmin)) {
+      if(!is.null(data.list$prec)) {
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], data.list$prec[,x], ts, ts, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tasmax[,x], data.list$tasmin[,x], NULL, ts, ts, NULL, base.range, pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], NULL, ts, ts, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       }
     } else {
-      if(!is.null(data.list$pr)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tasmax[,x], NULL, data.list$pr[,x], ts, NULL, ts, base.range, pad.data.with.first.last.values)))
+      if(!is.null(data.list$prec)) {
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, data.list$prec[,x], ts, NULL, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tasmax[,x], NULL, NULL, ts, NULL, NULL, base.range, pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, NULL, ts, NULL, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       }
     }
   } else {
-    if(!is.null(data.list$tasmin)) {
-      if(!is.null(data.list$pr)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tasmin[,x], data.list$pr[,x], NULL, ts, ts, base.range, pad.data.with.first.last.values)))
+    if(!is.null(data.list$tmin)) {
+      if(!is.null(data.list$prec)) {
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], data.list$prec[,x], NULL, ts, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tasmin[,x], NULL, NULL, ts, NULL, base.range, pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], NULL, NULL, ts, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       }
     } else {
-      if(!is.null(data.list$pr)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, NULL, data.list$pr[,x], NULL, NULL, ts, base.range, pad.data.with.first.last.values)))
+      if(!is.null(data.list$prec)) {
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, NULL, data.list$prec[,x], NULL, NULL, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
       } else {
         stop("Go home and take your shitty input with you.")
       }
@@ -769,7 +772,9 @@ set.up.cluster <- function(parallel, type="SOCK") {
 }
 
 create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.name.map, base.range, dim.size, dim.axes, threshold.dat) {
-  exemplar.var <- f[[v.f.idx[1]]]$var[[variable.name.map[names(v.f.idx)[1]]]]
+  exemplar.file <- f[[v.f.idx[1]]]
+  exemplar.var.name <- variable.name.map[names(v.f.idx)[1]]
+  exemplar.var <- exemplar.file$var[[exemplar.var.name]]
   num.thresholds <- ifelse(is.null(attr(ts, "dpy")), 365, attr(ts, "dpy"))
   cal <- attr(ts, "cal")
 
@@ -779,29 +784,29 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
   time.units.split <- strsplit(time.units, " ")[[1]]
   time.origin <- if(time.units.split[2] == "as") format(trunc(min(ts), units="days"), "%Y-%m-%d") else time.units.split[3]
   time.dim.name <- old.time.dim$name
-  old.time.bnds.att <- ncdf4::ncatt_get(f$tasmax, time.dim.name, "bounds")
+  old.time.bnds.att <- ncdf4::ncatt_get(exemplar.file, time.dim.name, "bounds")
   time.bnds.name <- if(old.time.bnds.att$hasatt) old.time.bnds.att$value else "time_bnds"
 
   ## Set up time variables
-  out.time <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt(paste(floor(mean(base.range)), 1:num.thresholds, sep="-"), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt(time.origin, cal))), units="days")
+  out.time <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(paste(floor(mean(base.range)), 1:num.thresholds, sep="-"), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(time.origin, cal))), units="days")
   out.time.dim <- ncdf4::ncdim_def("time", paste("days since", time.origin), out.time, unlim=TRUE, calendar=cal, longname="time")
 
   ## Set up bounds
-  input.bounds <- ncdf4.helpers::nc.get.dim.bounds.var.list(f$tasmax)
+  input.bounds <- ncdf4.helpers::nc.get.dim.bounds.var.list(exemplar.file)
   input.bounds <- input.bounds[input.bounds != time.bnds.name]
-  input.dim.names <- ncdf4.helpers::nc.get.dim.names(f$tasmax, "tasmax")
+  input.dim.names <- ncdf4.helpers::nc.get.dim.names(exemplar.file, exemplar.var.name)
   input.varname.list <- c(input.bounds, input.dim.names)
   
   bnds.dim <- ncdf4::ncdim_def("bnds", "", 1:2, create_dimvar=FALSE)
   if(length(input.bounds) > 0)
-    bnds.dim <- f$tasmax$var[[input.bounds[1]]]$dim[[1]]
-  out.time.bnds <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt(c(paste(base.range[1], 1:num.thresholds, sep="-"), paste(base.range[2], 1:num.thresholds, sep="-")), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt(time.origin, cal))), units="days")
+    bnds.dim <- exemplar.file$var[[input.bounds[1]]]$dim[[1]]
+  out.time.bnds <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(c(paste(base.range[1], 1:num.thresholds, sep="-"), paste(base.range[2], 1:num.thresholds, sep="-")), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(time.origin, cal))), units="days")
   dim(out.time.bnds) <- c(num.thresholds, 2)
   out.time.bnds <- t(out.time.bnds)
   out.time.bnds.var <- ncdf4::ncvar_def(time.bnds.name, '', list(bnds.dim, out.time.dim), longname='', prec="double")
 
-  input.bounds.vars <- c(lapply(input.bounds, function(x) { f$tasmax$var[[x]] }), list(out.time.bnds.var))
-  input.bounds.data <- c(lapply(input.bounds, function(x) { ncdf4::ncvar_get(f$tasmax, x) }), list(out.time.bnds))
+  input.bounds.vars <- c(lapply(input.bounds, function(x) { exemplar.file$var[[x]] }), list(out.time.bnds.var))
+  input.bounds.data <- c(lapply(input.bounds, function(x) { ncdf4::ncvar_get(exemplar.file, x) }), list(out.time.bnds))
   all.bounds <- c(input.bounds, time.bnds.name)
   names(input.bounds.data) <- names(input.bounds.vars) <- all.bounds
 
@@ -825,12 +830,12 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
 
   ## Copy attributes for all variables plus global attributes
   ncdf4::nc_redef(thresholds.netcdf)
-  ncdf4.helpers::nc.copy.atts(f$tasmax, 0, thresholds.netcdf, 0, definemode=TRUE)
+  ncdf4.helpers::nc.copy.atts(exemplar.file, 0, thresholds.netcdf, 0, definemode=TRUE)
   for(v in input.varname.list) {
-    ncdf4.helpers::nc.copy.atts(f$tasmax, v, thresholds.netcdf, v, definemode=TRUE)
+    ncdf4.helpers::nc.copy.atts(exemplar.file, v, thresholds.netcdf, v, definemode=TRUE)
   }
 
-  put.ETCCDI.atts(thresholds.netcdf, "monClim", ncdf4::ncatt_get(f$tasmax, 0, "title")$value, definemode=TRUE)
+  put.ETCCDI.atts(thresholds.netcdf, "monClim", ncdf4::ncatt_get(exemplar.file, 0, "title")$value, author.data, definemode=TRUE)
 
   ## Attach history data to threshold data.
   lapply(out.vars, function(v) {
@@ -874,7 +879,7 @@ create.file.metadata <- function(f, variable.name.map) {
 
   if(any(sapply(v.list, function(vl) { sum(variable.name.map %in% vl) }) == 0))
     stop("At least one input file doesn't contain any of the named variables.")
-  if(anyDuplicated(unlist(v.f.idx)))
+  if(anyDuplicated(unlist(names(v.f.idx))))
     stop("Variable(s) present in more than one input file.")
 
   ## Get units and specify destination units
@@ -942,7 +947,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
   threshold.dat <- threshold.dat[sapply(threshold.dat, function(x) { x$q.path[1] %in% names(f.meta$v.f.idx) })]
   
   ## Create the output file
-  thresholds.netcdf <- create.thresholds.file(output.file, f, f.meta$ts, f.meta$v.list, base.range, f.meta$dim.size, f.meta$dim.axes, threshold.dat)
+  thresholds.netcdf <- create.thresholds.file(output.file, f, f.meta$ts, f.meta$v.f.idx, variable.name.map, base.range, f.meta$dim.size, f.meta$dim.axes, threshold.dat)
 
   cluster <- set.up.cluster(parallel, cluster.type)
   subsets <- ncdf4.helpers::get.cluster.worker.subsets(max.vals.millions * 1000000, f.meta$dim.size, f.meta$dim.axes, axis.to.split.on)
