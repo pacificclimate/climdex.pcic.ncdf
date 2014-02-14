@@ -51,13 +51,6 @@ put.history.att <- function(f, v, definemode=FALSE) {
 }
 
 put.ETCCDI.atts <- function(f, freq, orig.title, author.data, definemode=FALSE) {
-  ## FIXME: Move this.
-  author.data <- list(institution="Pacific Climate Impacts Consortium",
-                      institution_id="PCIC",
-                      indices_archive="Please check http://www.cccma.ec.gc.ca/data/climdex/climdex.shtml for errata or updates.",
-                      contact="bronaugh@uvic.ca",
-                      references="http://www.cccma.ec.gc.ca/data/climdex/"
-                      )
   if("institution" %in% names(author.data))
     ncdf4::ncatt_put(f, 0, "ETCCDI_institution", author.data$institution, definemode=definemode)
   if("institution_id" %in% names(author.data))
@@ -309,7 +302,7 @@ get.climdex.variable.metadata <- function(vars.list, template.filename) {
 get.output.time.data <- function(ts, time.origin.PCICt, time.units, time.dim.name, time.bnds.name, bnds.dim, res=c("year", "month"), origin="1970-01-01") {
   res <- match.arg(res)
   time.bounds <- ncdf4.helpers::nc.make.time.bounds(ts, res)
-  time.series <- PCICt::as.PCICt((unclass(time.bounds[1,]) + unclass(time.bounds[2,])) / 2, cal=attr(time.bounds, "cal"), origin=origin)
+  time.series <- PCICt::as.PCICt.numeric((unclass(time.bounds[1,]) + unclass(time.bounds[2,])) / 2, cal=attr(time.bounds, "cal"), origin=origin)
   time.bounds.days <- as.numeric(julian(PCICt::as.POSIXct.PCICt(time.bounds), origin=PCICt::as.POSIXct.PCICt(time.origin.PCICt)))
   time.days <- as.numeric(julian(PCICt::as.POSIXct.PCICt(time.series), origin=PCICt::as.POSIXct.PCICt(time.origin.PCICt)))
   time.dim <- ncdf4::ncdim_def(time.dim.name, units=time.units, vals=time.days, unlim=TRUE, longname='')
@@ -346,7 +339,7 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
   time.bnds.name <- if(old.time.bnds.att$hasatt) old.time.bnds.att$value else paste(time.dim.name, "bnds", sep="_")
   
   ## Create new time dimensions
-  time.origin.PCICt <- PCICt::as.PCICt(time.origin, cal=attr(ts, "cal"))
+  time.origin.PCICt <- PCICt::as.PCICt.default(time.origin, cal=attr(ts, "cal"))
   time.units <- paste("days since", time.origin)
 
   input.bounds <- ncdf4.helpers::nc.get.dim.bounds.var.list(f.example, v.example)
@@ -361,16 +354,16 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
   vars.ncvars <- sapply(vars.to.copy, function(x) { f.example$var[[x]] }, simplify=FALSE)
   vars.data <- lapply(vars.ncvars, function(ncvar) { if(length(ncvar$dim) == 0) NULL else ncdf4::ncvar_get(f.example, ncvar) })
   
-  return(lapply(1:length(cdx.dat$name.ncdf), function(x) {
+  return(lapply(1:length(cdx.dat$var.name), function(x) {
     annual <- cdx.dat$annual[x]
     time.for.file <- time.dat[[c("monthly", "annual")[1 + annual]]]
 
     ## Establish variables, create file
-    nc.var.list <- c(vars.ncvars, list(time.for.file$time.bnds.var, ncdf4::ncvar_def(name=cdx.dat$name.ncdf[x], units=cdx.dat$units[x], dim=c(f.example$var[[v.example]]$dim[1:2], time.for.file$time.dim), missval=1e20, longname=cdx.dat$long.names[x])))
+    nc.var.list <- c(vars.ncvars, list(time.for.file$time.bnds.var, ncdf4::ncvar_def(name=cdx.dat$var.name[x], units=cdx.dat$units[x], dim=c(f.example$var[[v.example]]$dim[1:2], list(time.for.file$time.dim)), missval=1e20, longname=cdx.dat$long.name[x])))
     new.file <- ncdf4::nc_create(paste(out.dir, cdx.dat$filename[x], sep="/"), nc.var.list, force_v4=TRUE)
 
     ## Copy attributes for all variables plus global attributes
-    ncdf4::nc_redef(new.file)
+    ##ncdf4::nc_redef(new.file)
     ## FIXME: Assumption here that institution_id is on the file.
     inst.id <- ncdf4::ncatt_get(f.example, 0, "institution_id")$value
     att.rename <- c("frequency"="input_frequency", "creation_date"="input_creation_date", "title"="input_title", "tracking_id"="input_tracking_id")
@@ -380,17 +373,17 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
     
     ## Copy attributes with renaming and exclusions.
     ncdf4.helpers::nc.copy.atts(f.example, 0, new.file, 0, definemode=TRUE, rename.mapping=att.rename)
-    ncdf4.helpers::nc.copy.atts(f.example, v.example, new.file, cdx.dat$name.ncdf[x], exception.list=c("units", "long_name", "standard_name", "base_period", "missing_value", "_FillValue", "add_", "valid_min", "valid_max", "valid_range", "scale_factor", "add_offset", "signedness", "history"))
+    ncdf4.helpers::nc.copy.atts(f.example, v.example, new.file, cdx.dat$var.name[x], exception.list=c("units", "long_name", "standard_name", "base_period", "missing_value", "_FillValue", "add_", "valid_min", "valid_max", "valid_range", "scale_factor", "add_offset", "signedness", "history"))
     for(v in vars.to.clone.atts.for) {
       ncdf4.helpers::nc.copy.atts(f.example, v, new.file, v, definemode=TRUE)
     }
     ncdf4::ncatt_put(new.file, time.dim.name, "units", time.units, definemode=TRUE)
 
     ## Put additional attributes.
-    put.history.att(new.file, cdx.dat$name.ncdf[x], definemode=TRUE)
+    put.history.att(new.file, cdx.dat$var.name[x], definemode=TRUE)
     put.ETCCDI.atts(new.file, c("mon", "yr")[1 + annual], ncdf4::ncatt_get(f.example, 0, "title")$value, author.data, definemode=TRUE)
     if(cdx.dat$base.period.attr[x])
-      ncdf4::ncatt_put(new.file, cdx.dat$name.ncdf[x], "base_period", paste(base.range, collapse="-"), definemode=TRUE)
+      ncdf4::ncatt_put(new.file, cdx.dat$var.name[x], "base_period", paste(base.range, collapse="-"), definemode=TRUE)
     ncdf4::nc_enddef(new.file)
 
     ## Copy data from vars.to.copy and put time bounds.
@@ -452,7 +445,7 @@ compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.
                          quantiles=in.dat$quantiles)
   
   ## NOTE: Names must be stripped here because it increases memory usage on the head by a factor of 8-9x (!)
-  return(lapply(cdx.funcs, function(f) { d <- f(ci); names(d) <- NULL; d }))
+  return(lapply(cdx.funcs, function(f) { d <- f(ci=ci); names(d) <- NULL; d }))
 }
 
 #' Flatten the X and Y dimensions down to a space dimension.
@@ -577,9 +570,7 @@ get.quantiles.object <- function(thresholds, idx) {
 
   for(threshold.var in names(thresh.path.1d)[names(thresh.path.1d) %in% names(thresholds)]) {
     thresh.path <- thresh.path.1d[[threshold.var]]
-    if(is.null(result[[thresh.path]]))
-      result[[thresh.path]] <- c()
-    result[[thresh.path[1]]][thresh.path[2]] <- thresholds[[threshold.var]][idx]
+    result[[thresh.path[1]]] <- c(result[[thresh.path[1]]], structure(thresholds[[threshold.var]][idx], .Names=thresh.path[2]))
   }
 
   return(result)
@@ -624,9 +615,9 @@ compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.ax
 
   northern.hemisphere <- get.northern.hemisphere.booleans(subset, f[[v.f.idx[1]]], variable.name.map[names(v.f.idx)[1]], projection)
   
-  thresholds <- if(is.null(thresholds.netcdf)) NULL else get.thresholds.chunk(subset, thresholds.netcdf, t.f.idx, thresholds.name.map)
+  thresholds <- if(is.null(thresholds.netcdf)) NULL else get.thresholds.chunk(subset, cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map)
   return(lapply(1:(dim(data.list[[1]])[2]), function(x) {
-    indices.input <- c(sapply(names(data.list), function(name) { data.list[[name]][,x] }, simplify=FALSE), northern.hemisphere=northern.hemisphere[x], quantiles=get.quantiles.object(thresholds, x))
+    indices.input <- c(sapply(names(data.list), function(name) { data.list[[name]][,x] }, simplify=FALSE), northern.hemisphere=northern.hemisphere[x], list(quantiles=get.quantiles.object(thresholds, x)))
     compute.climdex.indices(indices.input, cdx.funcs, ts, base.range, fclimdex.compatible)
   }))
 }
@@ -648,18 +639,15 @@ compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.ax
 #'
 #' @export
 get.thresholds.chunk <- function(subset, cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map) {
-  var.thresh.map <- list(tx10thresh=c("TX10p"), tx90thresh=c("TX90p", "WSDI"), tn10thresh=c("TN10p", "CSDI"), tn90thresh=c("TN90p"), r95thresh=c("R95p"), r99thresh=c("R99p"))
+  var.thresh.map <- list(tx10thresh=c("tx10p"), tx90thresh=c("tx90p", "WSDI"), tn10thresh=c("tn10p", "CSDI"), tn90thresh=c("tn90p"), r95thresh=c("r95p"), r99thresh=c("r99p"))
   
   cdx.names <- names(cdx.funcs)
   thresh.var.needed <- names(var.thresh.map)[sapply(var.thresh.map, function(x) { any(unlist(lapply(x, function(substr) { any(grepl(substr, cdx.names)) }))) })]
   stopifnot(all(thresh.var.needed %in% names(t.f.idx)))
-  return(sapply(thresh.var.needed, function(x) { 
-    thresholds <- sapply(thresh.var.needed, function(threshold.var) {
-      dim.axes <- ncdf4.helpers::nc.get.dim.axes(thresholds.netcdf[[t.f.idx[x]]], thresholds.name.map[x]);
-      return(get.data(thresholds.netcdf[[t.f.idx[threshold.var]]], thresholds.name.map[threshold.var], subset, dim.axes=dim.axes))
-    }, simplify=FALSE)
-    return(thresholds)
-  }))
+  return(sapply(thresh.var.needed, function(threshold.var) { 
+    dim.axes <- ncdf4.helpers::nc.get.dim.axes(thresholds.netcdf[[t.f.idx[threshold.var]]], thresholds.name.map[threshold.var]);
+    return(get.data(thresholds.netcdf[[t.f.idx[threshold.var]]], thresholds.name.map[threshold.var], subset, dim.axes=dim.axes))
+  }, simplify=FALSE))
 }
                             
 ## Write out results for variables computed
@@ -678,7 +666,7 @@ get.thresholds.chunk <- function(subset, cdx.funcs, thresholds.netcdf, t.f.idx, 
 #' ## FIXME
 #'
 #' @export
-write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim.size) {
+write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim.size, cdx.varname) {
   xy.dims <- dim.size[1:2]
   if(!is.null(chunk.subset$X))
     xy.dims[1] <- length(chunk.subset$X)
@@ -688,13 +676,12 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
   ## Write out results, variable by variable
   lapply(1:length(cdx.ncfile), function(v) {
     gc()
-    v.list <- ncdf4.helpers::nc.get.variable.list(v)
     dat <- t(do.call(cbind, lapply(climdex.results, function(cr) { cr[[v]] })))
     dat.dim <- dim(dat)
     if(length(dat) == 1)
       print(dat)
     dim(dat) <- c(xy.dims, dat.dim[2])
-    ncdf4.helpers::nc.put.var.subset.by.axes(cdx.ncfile[[v]], v.list[1], dat, chunk.subset)
+    ncdf4.helpers::nc.put.var.subset.by.axes(cdx.ncfile[[v]], cdx.varname[v], dat, chunk.subset)
   })
 }
 
@@ -1081,12 +1068,13 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   climdex.time.resolution <- match.arg(climdex.time.resolution)
   climdex.var.list <- get.climdex.variable.list(names(f.meta$v.f.idx), climdex.time.resolution, climdex.vars.subset)
 
-  cdx.ncfile <- create.ncdf.output.files(get.climdex.variable.metadata(climdex.var.list, output.filename.template), f, f.meta$v.list, ts, get.time.origin(f, f.meta$dim.axes), base.range, author.data)
+  cdx.meta <- get.climdex.variable.metadata(climdex.var.list, output.filename.template)
+  cdx.ncfile <- create.ncdf.output.files(cdx.meta, f, f.meta$v.f.idx, variable.name.map, f.meta$ts, get.time.origin(f, f.meta$dim.axes), base.range, out.dir, author.data)
   cdx.funcs <- get.climdex.functions(climdex.var.list)
   
   ## Compute indices, either single process or multi-process using 'snow'
   subsets <- ncdf4.helpers::get.cluster.worker.subsets(max.vals.millions * 1000000, f.meta$dim.size, f.meta$dim.axes, axis.to.split.on)
-  if(!is.null(cluster)) {
+  if(is.numeric(parallel)) {
     ## Setup...
     lapply(f, ncdf4::nc_close)
     rm(f)
@@ -1097,7 +1085,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
 
     ## Meat...
     parLapplyLBFiltered(cluster, subsets, compute.indices.for.stripe, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, local.filter.func=function(x, x.sub) {
-      write.climdex.results(x, x.sub, cdx.ncfile, f.meta$dim.size)
+      write.climdex.results(x, x.sub, cdx.ncfile, f.meta$dim.size, cdx.meta$var.name)
     })
 
     ## Clean-up.
@@ -1107,7 +1095,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     thresholds.netcdf <- open.thresholds(thresholds.files)
     
     ## Meat...
-    lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size) })
+    lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size, cdx.meta$var.name) })
 
     ## Clean-up.
     close.thresholds(thresholds.netcdf)
