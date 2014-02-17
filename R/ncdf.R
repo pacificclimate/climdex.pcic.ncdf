@@ -183,7 +183,7 @@ get.climdex.functions <- function(vars.list, fclimdex.compatible=TRUE) {
                   el, el, el, r1mm.opts, cwdd.opts, cwdd.opts, el, el, el,
                   altcwdd.opts, altcwdd.opts, altwcsdi.opts, altwcsdi.opts)
 
-  func <- lapply(1:length(func.names), function(n) functional::Curry(getFromNamespace(func.names[n], 'climdex.pcic'), options[[n]]))
+  func <- lapply(1:length(func.names), function(n) do.call(functional::Curry, c(list(getFromNamespace(func.names[n], 'climdex.pcic')), options[[n]])))
   names(func) <- c("fdETCCDI_yr", "suETCCDI_yr", "idETCCDI_yr", "trETCCDI_yr", "gslETCCDI_yr",
                    "txxETCCDI_mon", "tnxETCCDI_mon", "txnETCCDI_mon", "tnnETCCDI_mon", "tn10pETCCDI_mon", "tx10pETCCDI_mon", "tn90pETCCDI_mon", "tx90pETCCDI_mon",
                    "txxETCCDI_yr", "tnxETCCDI_yr", "txnETCCDI_yr", "tnnETCCDI_yr", "tn10pETCCDI_yr", "tx10pETCCDI_yr", "tn90pETCCDI_yr", "tx90pETCCDI_yr",
@@ -349,7 +349,7 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
                    monthly=get.output.time.data(ts, time.origin.PCICt, time.units, time.dim.name, time.bnds.name, bnds, res="month"))
   
   grid.mapping.att <- ncdf4::ncatt_get(f.example, v.example, "grid_mapping")
-  vars.to.copy <- c(input.bounds[input.bounds != time.bnds.name], ncdf4.helpers::nc.get.coordinate.axes(f.example, v.example), if(grid.mapping.att$hasatt) grid.mapping.att$value)
+  vars.to.copy <- c(input.bounds[input.bounds != time.bnds.name], names(ncdf4.helpers::nc.get.coordinate.axes(f.example, v.example)), if(grid.mapping.att$hasatt) grid.mapping.att$value)
   vars.to.clone.atts.for <- c(vars.to.copy, ncdf4.helpers::nc.get.dim.names(f.example, v.example))
   vars.ncvars <- sapply(vars.to.copy, function(x) { f.example$var[[x]] }, simplify=FALSE)
   vars.data <- lapply(vars.ncvars, function(ncvar) { if(length(ncvar$dim) == 0) NULL else ncdf4::ncvar_get(f.example, ncvar) })
@@ -373,7 +373,7 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
     
     ## Copy attributes with renaming and exclusions.
     ncdf4.helpers::nc.copy.atts(f.example, 0, new.file, 0, definemode=TRUE, rename.mapping=att.rename)
-    ncdf4.helpers::nc.copy.atts(f.example, v.example, new.file, cdx.dat$var.name[x], exception.list=c("units", "long_name", "standard_name", "base_period", "missing_value", "_FillValue", "add_", "valid_min", "valid_max", "valid_range", "scale_factor", "add_offset", "signedness", "history"))
+    ncdf4.helpers::nc.copy.atts(f.example, v.example, new.file, cdx.dat$var.name[x], definemode=TRUE, exception.list=c("units", "long_name", "standard_name", "base_period", "missing_value", "_FillValue", "add_", "valid_min", "valid_max", "valid_range", "scale_factor", "add_offset", "signedness", "history"))
     for(v in vars.to.clone.atts.for) {
       ncdf4.helpers::nc.copy.atts(f.example, v, new.file, v, definemode=TRUE)
     }
@@ -437,10 +437,10 @@ get.ts <- function(f) {
 #' 
 #' @export
 compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.compatible) {
-  ci <- climdex.pcic::climdexInput.raw(in.dat$tasmax, in.dat$tasmin, in.dat$pr,
-                         if(is.null(in.dat$tasmax)) NULL else ts,
-                         if(is.null(in.dat$tasmin)) NULL else ts,
-                         if(is.null(in.dat$pr)) NULL else ts,
+  ci <- climdex.pcic::climdexInput.raw(in.dat$tmax, in.dat$tmin, in.dat$prec,
+                         if(is.null(in.dat$tmax)) NULL else ts,
+                         if(is.null(in.dat$tmin)) NULL else ts,
+                         if(is.null(in.dat$prec)) NULL else ts,
                          base.range=base.range, northern.hemisphere=in.dat$northern.hemisphere, pad.data.with.first.last.values=fclimdex.compatible,
                          quantiles=in.dat$quantiles)
   
@@ -527,12 +527,12 @@ get.data <- function(f, v, subset, src.units, dest.units, dim.axes) {
 #' @export
 get.northern.hemisphere.booleans <- function(subset, f, v, projection) {
   y.dim <- ncdf4.helpers::nc.get.dim.for.axis(f, v, "Y")
+  x.dim <- ncdf4.helpers::nc.get.dim.for.axis(f, v, "X")
   y.subset.vals <- rep(y.dim$vals[if(is.null(subset$Y)) 1:y.dim$len else subset$Y],
-                       each=(if(is.null(subset$X)) 1 else length(subset$X)))
+                       each=(if(is.null(subset$X)) x.dim$len else length(subset$X)))
   if(!is.null(projection)) {
-    x.dim <- ncdf4.helpers::nc.get.dim.for.axis(f, v, "X")
     x.subset.vals <- rep(x.dim$vals[if(is.null(subset$X)) 1:x.dim$len else subset$X],
-                         (if(is.null(subset$Y)) 1 else length(subset$Y)))
+                         (if(is.null(subset$Y)) y.dim$len else length(subset$Y)))
     dat <- proj4::project(list(x=x.subset.vals, y=y.subset.vals), projection, inverse=TRUE)
     return(dat$y >= 0)
   } else
@@ -564,9 +564,17 @@ get.quantiles.object <- function(thresholds, idx) {
   thresh.path.1d <- list(r95thresh=c("prec", "q95"),
                          r99thresh=c("prec", "q99"))
   result <- list()
+
+  
+  recursive.append <- function(x, l, data) {
+    if(length(x) == 0) return(data)
+    if(is.null(l)) l <- list()
+    return(c(l[!(names(l) %in% x[1])], structure(list(recursive.append(tail(x, n=-1), l[[x[1]]], data)), .Names=x[1])))
+  }
+  
   
   for(threshold.var in names(thresh.path.2d)[names(thresh.path.2d) %in% names(thresholds)])
-    result[[thresh.path.2d[[threshold.var]]]] <- thresholds[[threshold.var]][,idx]
+    result <- recursive.append(thresh.path.2d[[threshold.var]], result, thresholds[[threshold.var]][,idx])
 
   for(threshold.var in names(thresh.path.1d)[names(thresh.path.1d) %in% names(thresholds)]) {
     thresh.path <- thresh.path.1d[[threshold.var]]
