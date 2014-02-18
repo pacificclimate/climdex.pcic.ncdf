@@ -669,6 +669,7 @@ get.thresholds.chunk <- function(subset, cdx.funcs, thresholds.netcdf, t.f.idx, 
 #' @param chunk.subset The corresponding subset.
 #' @param cdx.ncfile The list of NetCDF files to write the results out to.
 #' @param dim.size The overall size of the input data.
+#' @param cdx.varname The list of NetCDF variable names for the files in \code{cdx.ncfile}.
 #'
 #' @examples
 #' ## FIXME
@@ -766,7 +767,7 @@ set.up.cluster <- function(parallel, type="SOCK") {
   cluster
 }
 
-create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.name.map, base.range, dim.size, dim.axes, threshold.dat) {
+create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.name.map, base.range, dim.size, dim.axes, threshold.dat, author.data) {
   exemplar.file <- f[[v.f.idx[1]]]
   exemplar.var.name <- variable.name.map[names(v.f.idx)[1]]
   exemplar.var <- exemplar.file$var[[exemplar.var.name]]
@@ -942,7 +943,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
   threshold.dat <- threshold.dat[sapply(threshold.dat, function(x) { x$q.path[1] %in% names(f.meta$v.f.idx) })]
   
   ## Create the output file
-  thresholds.netcdf <- create.thresholds.file(output.file, f, f.meta$ts, f.meta$v.f.idx, variable.name.map, base.range, f.meta$dim.size, f.meta$dim.axes, threshold.dat)
+  thresholds.netcdf <- create.thresholds.file(output.file, f, f.meta$ts, f.meta$v.f.idx, variable.name.map, base.range, f.meta$dim.size, f.meta$dim.axes, threshold.dat, author.data)
 
   cluster <- set.up.cluster(parallel, cluster.type)
   subsets <- ncdf4.helpers::get.cluster.worker.subsets(max.vals.millions * 1000000, f.meta$dim.size, f.meta$dim.axes, axis.to.split.on)
