@@ -1,5 +1,5 @@
 #' @importClassesFrom climdex.pcic climdexInput
-#' @import PCICt
+#' @import snow PCICt
 
 ## Parallel lapply across 'x', running remote.func, and filtering with local.filter.func .
 ## Processing is incremental, not batch, to improve parallel throughput and reduce memory consumption.
@@ -86,7 +86,13 @@ all.the.same <- function(dat) {
 #' @return A vector containing filenames corresponding to the variables and filename bits supplied.
 #'
 #' @examples
-#' ## FIXME
+#' library(ncdf4.helpers)
+#' ## Split out filename bits for use below...
+#' fn <- "pr_day_BCCAQ+ANUSPLIN300+MRI-CGCM3_historical+rcp85_r1i1p1_19500101-21001231.nc"
+#' fn.split <- get.split.filename.cmip5(fn)
+#'
+#' ## Create filenames with time data and variable appropriately replaced.
+#' filenames <- create.climdex.cmip5.filenames(fn.split, c("rx5dayETCCDI_mon", "tn90pETCCDI_yr"))
 #'
 #' @export
 create.climdex.cmip5.filenames <- function(fn.split, vars.list) {
@@ -109,7 +115,15 @@ create.climdex.cmip5.filenames <- function(fn.split, vars.list) {
 #' 
 #' @seealso \code{\link{create.indices.from.files}}
 #' @examples
-#' ## FIXME
+#' ## Get all variables which require tmin and/or tmax, for all time resolutions.
+#' var.list1 <- get.climdex.variable.list(c("tmax", "tmin"))
+#' 
+#' ## Get all variables which require prec with an annual time resolution.
+#' var.list2 <- get.climdex.variable.list("prec", time.resolution="annual")
+#' 
+#' ## Get the intersection of a set list of vars and available data.
+#' sub.vars <- c("su", "id", "tr", "fd", "gsl", "csdi", "wsdi", "r10mm")
+#' var.list3 <- get.climdex.variable.list("tmax", climdex.vars.subset=sub.vars)
 #' 
 #' @export
 get.climdex.variable.list <- function(source.data.present, time.resolution=c("all", "annual", "monthly"), climdex.vars.subset=NULL) {
@@ -152,7 +166,9 @@ get.climdex.variable.list <- function(source.data.present, time.resolution=c("al
 #' @return A list of functions, named by the variable they compute.
 #'
 #' @examples
-#' ## FIXME
+#' ## Get Climdex functions for a variable list with all appropriate params
+#' ## curried in, so that all they take is a ClimdexInput object.
+#' cdx.funcs <- get.climdex.functions(get.climdex.variable.list(c("tmax", "tmin")))
 #'
 #' @export
 get.climdex.functions <- function(vars.list, fclimdex.compatible=TRUE) {
@@ -216,7 +232,10 @@ get.climdex.functions <- function(vars.list, fclimdex.compatible=TRUE) {
 #' }
 #' 
 #' @examples
-#' ## FIXME
+#' ## Get metadata (including filenames) for specified variables.
+#' fn <- "pr_day_BCCAQ+ANUSPLIN300+MRI-CGCM3_historical+rcp85_r1i1p1_19500101-21001231.nc"
+#' var.list2 <- get.climdex.variable.list("prec", time.resolution="annual")
+#' md <- get.climdex.variable.metadata(var.list2, fn)
 #'
 #' @export
 get.climdex.variable.metadata <- function(vars.list, template.filename) {
@@ -303,8 +322,8 @@ get.output.time.data <- function(ts, time.origin.PCICt, time.units, time.dim.nam
   res <- match.arg(res)
   time.bounds <- ncdf4.helpers::nc.make.time.bounds(ts, res)
   time.series <- PCICt::as.PCICt.numeric((unclass(time.bounds[1,]) + unclass(time.bounds[2,])) / 2, cal=attr(time.bounds, "cal"), origin=origin)
-  time.bounds.days <- as.numeric(julian(PCICt::as.POSIXct.PCICt(time.bounds), origin=PCICt::as.POSIXct.PCICt(time.origin.PCICt)))
-  time.days <- as.numeric(julian(PCICt::as.POSIXct.PCICt(time.series), origin=PCICt::as.POSIXct.PCICt(time.origin.PCICt)))
+  time.bounds.days <- as.numeric(julian(time.bounds, origin=time.origin.PCICt))
+  time.days <- as.numeric(julian(time.series, origin=time.origin.PCICt))
   time.dim <- ncdf4::ncdim_def(time.dim.name, units=time.units, vals=time.days, unlim=TRUE, longname='')
   time.bnds.var <- ncdf4::ncvar_def(time.bnds.name, '', list(bnds.dim, time.dim), longname='', prec="double")
   return(list(time.dim=time.dim, time.bnds.var=time.bnds.var, time.bnds.data=time.bounds.days))
@@ -328,7 +347,23 @@ get.output.time.data <- function(ts, time.origin.PCICt, time.units, time.dim.nam
 #' @return A list of objects of type \code{ncdf4}.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Establish basic inputs.
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#'
+#' ## Prepare derived inputs.
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' variable.name.map <- c(tmax="tasmax", tmin="tasmin", prec="pr")
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' climdex.var.list <- get.climdex.variable.list(names(f.meta$v.f.idx), "all", NULL)
+#' cdx.meta <- get.climdex.variable.metadata(climdex.var.list, input.files[1])
+#'
+#' ## Create output files
+#' cdx.ncfile <- create.ncdf.output.files(cdx.meta, f, f.meta$v.f.idx, variable.name.map,
+#'                                        f.meta$ts, get.time.origin(f, f.meta$dim.axes),
+#'                                        c(1981,1990), "/foo", author.data)
+#' }
 #'
 #' @export
 create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts, time.origin, base.range, out.dir, author.data) {
@@ -363,13 +398,13 @@ create.ncdf.output.files <- function(cdx.dat, f, v.f.idx, variable.name.map, ts,
     new.file <- ncdf4::nc_create(paste(out.dir, cdx.dat$filename[x], sep="/"), nc.var.list, force_v4=TRUE)
 
     ## Copy attributes for all variables plus global attributes
-    ##ncdf4::nc_redef(new.file)
-    ## FIXME: Assumption here that institution_id is on the file.
-    inst.id <- ncdf4::ncatt_get(f.example, 0, "institution_id")$value
     att.rename <- c("frequency"="input_frequency", "creation_date"="input_creation_date", "title"="input_title", "tracking_id"="input_tracking_id")
-    att.rename.inst <- c("contact"="contact", "references"="references")
-    names(att.rename.inst) <- paste(inst.id, names(att.rename.inst), sep="_")
-    att.rename <- c(att.rename, att.rename.inst)
+    inst.id <- ncdf4::ncatt_get(f.example, 0, "institution_id")
+    if(inst.id$hasatt) {
+      att.rename.inst <- c("contact"="contact", "references"="references")
+      names(att.rename.inst) <- paste(inst.id$value, names(att.rename.inst), sep="_")
+      att.rename <- c(att.rename, att.rename.inst)
+    }
     
     ## Copy attributes with renaming and exclusions.
     ncdf4.helpers::nc.copy.atts(f.example, 0, new.file, 0, definemode=TRUE, rename.mapping=att.rename)
@@ -433,7 +468,17 @@ get.ts <- function(f) {
 #' @return A list of data for each index.
 #'
 #' @examples
-#' ## FIXME
+#' library(climdex.pcic)
+#' 
+#' ## Prepare input data
+#' in.dat <- list(tmax=ec.1018935.tmax$MAX_TEMP)
+#' cdx.funcs <- get.climdex.functions(get.climdex.variable.list(names(in.dat)))
+#' in.dat$northern.hemisphere <- TRUE
+#' ts <- as.PCICt(do.call(paste, ec.1018935.tmax[,c("year", "jday")]),
+#'                format="%Y %j", cal="gregorian")
+#'
+#' ## Compute indices
+#' res <- compute.climdex.indices(in.dat, cdx.funcs, ts, c(1981, 1990), FALSE)
 #' 
 #' @export
 compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.compatible) {
@@ -441,8 +486,7 @@ compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.
                          if(is.null(in.dat$tmax)) NULL else ts,
                          if(is.null(in.dat$tmin)) NULL else ts,
                          if(is.null(in.dat$prec)) NULL else ts,
-                         base.range=base.range, northern.hemisphere=in.dat$northern.hemisphere, pad.data.with.first.last.values=fclimdex.compatible,
-                         quantiles=in.dat$quantiles)
+                         base.range=base.range, northern.hemisphere=in.dat$northern.hemisphere, quantiles=in.dat$quantiles)
   
   ## NOTE: Names must be stripped here because it increases memory usage on the head by a factor of 8-9x (!)
   return(lapply(cdx.funcs, function(f) { d <- f(ci=ci); names(d) <- NULL; d }))
@@ -462,7 +506,9 @@ compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.
 #' @note The dimensions to reduce must be adjoining dimensions.
 #'
 #' @examples
-#' ## FIXME
+#' ## Take example data and flatten the last two dims down to one.
+#' dat <- structure(1:8, .Dim=c(2, 2, 2))
+#' dat.flat <- flatten.dims(dat, 2:3)
 #'
 #' @export
 flatten.dims <- function(dat, reduce.dims, names.subset) {
@@ -495,7 +541,7 @@ flatten.dims <- function(dat, reduce.dims, names.subset) {
 #' @return The retrieved and massaged data.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{get.data(f, "pr", list(Y=3), "kg m-2 s-1", "kg m-2 s-1", c(X="lon",Y="lat",T="time"))}
 #'
 #' @export
 get.data <- function(f, v, subset, src.units, dest.units, dim.axes) {
@@ -522,7 +568,12 @@ get.data <- function(f, v, subset, src.units, dest.units, dim.axes) {
 #' @return An array of booleans corresponding to the subset containing TRUE if the point is within the northern hemisphere, and FALSE otherwise.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Open files, etc.
+#' input.files <- c("tasmax_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' f <- list(nc_open(input.files))
+#' bools <- get.northern.hemisphere.booleans(list(X=1:10, Y=3), f, "pr", NULL)
+#' }
 #'
 #' @export
 get.northern.hemisphere.booleans <- function(subset, f, v, projection) {
@@ -550,7 +601,24 @@ get.northern.hemisphere.booleans <- function(subset, f, v, projection) {
 #' @return A quantiles object suitable for passing to \code{climdexInput.raw} as the \code{quantiles} argument.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Define mappings and filenames.
+#' thresholds.name.map <- c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh",
+#'                          tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh")
+#' thresh.files <- "thresholds.nc"
+#' 
+#' ## Open files, etc.
+#' cdx.funcs <- get.climdex.functions("tmax")
+#' thresholds.netcdf <- lapply(thresh.files, nc_open)
+#' t.f.idx <- get.var.file.idx(thresholds.name.map, lapply(thresholds.netcdf,
+#'                             ncdf4.helpers::nc.get.variable.list, min.dims=2))
+#'
+#' ## Get thresholds chunk.
+#' dat <- get.thresholds.chunk(list(Y=1), cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map)
+#'
+#' ## Get quantiles object for index 2
+#' q <- get.quantiles.object(dat, 2)
+#' }
 #'
 #' @export
 get.quantiles.object <- function(thresholds, idx) {
@@ -584,7 +652,6 @@ get.quantiles.object <- function(thresholds, idx) {
   return(result)
 }
 
-## FIXME: Look into whether I can simply pass in 'f' from the global namespace... would be less horrific
 #' Compute Climdex indices for a subset / stripe
 #'
 #' Compute Climdex indices for a subset / stripe
@@ -610,7 +677,24 @@ get.quantiles.object <- function(thresholds, idx) {
 #' @note This function relies on an object named 'f' and containing the opened NetCDF files being part of the global namespace.
 #' 
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Define mappings and filenames.
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' variable.name.map <- c(tmax="tasmax", tmin="tasmin", prec="pr")
+#' 
+#' ## Open files, etc.
+#' cdx.funcs <- get.climdex.functions("tmax")
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' climdex.var.list <- get.climdex.variable.list(names(f.meta$v.f.idx), "all", NULL)
+#' cdx.meta <- get.climdex.variable.metadata(climdex.var.list, input.files[1])
+#'
+#' ## Compute indices for stripe
+#' cdx <- compute.indices.for.stripe(list(Y=1), cdx.funcs, f.meta$ts, c(1981, 1990), f.meta$dim.axes,
+#'                            f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units,
+#'                            t.f.idx, NULL, f=f, thresholds.netcdf=NULL)
+#' }
 #'
 #' @export
 compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible=TRUE, projection=NULL, f, thresholds.netcdf) {
@@ -625,8 +709,15 @@ compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.ax
   
   thresholds <- if(is.null(thresholds.netcdf)) NULL else get.thresholds.chunk(subset, cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map)
   return(lapply(1:(dim(data.list[[1]])[2]), function(x) {
-    indices.input <- c(sapply(names(data.list), function(name) { data.list[[name]][,x] }, simplify=FALSE), northern.hemisphere=northern.hemisphere[x], list(quantiles=get.quantiles.object(thresholds, x)))
-    compute.climdex.indices(indices.input, cdx.funcs, ts, base.range, fclimdex.compatible)
+    dat.list <- sapply(names(data.list), function(name) { data.list[[name]][,x] }, simplify=FALSE)
+    ## Fast-path the all-NA case.
+    if(all(sapply(dat.list, function(x) { all(is.na(x)) }))) {
+      ## We don't need to pad this out to full length; cbind will do that for us.
+      return(structure(as.list(rep(NA, length(cdx.funcs))), .Names=names(cdx.funcs)))
+    } else {
+      indices.input <- c(dat.list, northern.hemisphere=northern.hemisphere[x], list(quantiles=get.quantiles.object(thresholds, x)))
+      return(compute.climdex.indices(indices.input, cdx.funcs, ts, base.range, fclimdex.compatible))
+  }
   }))
 }
 
@@ -643,7 +734,21 @@ compute.indices.for.stripe <- function(subset, cdx.funcs, ts, base.range, dim.ax
 #' @param thresholds.name.map A mapping from standardized names (tx10thresh, tn90thresh, etc) to NetCDF variable names.
 #' 
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Define mappings and filenames.
+#' thresholds.name.map <- c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh",
+#'                          tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh")
+#' thresh.files <- "thresholds.nc"
+#' 
+#' ## Open files, etc.
+#' cdx.funcs <- get.climdex.functions("tmax")
+#' thresholds.netcdf <- lapply(thresh.files, nc_open)
+#' t.f.idx <- get.var.file.idx(thresholds.name.map, lapply(thresholds.netcdf,
+#'                             ncdf4.helpers::nc.get.variable.list, min.dims=2))
+#'
+#' ## Get thresholds chunk.
+#' dat <- get.thresholds.chunk(list(Y=1), cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map)
+#' }
 #'
 #' @export
 get.thresholds.chunk <- function(subset, cdx.funcs, thresholds.netcdf, t.f.idx, thresholds.name.map) {
@@ -672,7 +777,32 @@ get.thresholds.chunk <- function(subset, cdx.funcs, thresholds.netcdf, t.f.idx, 
 #' @param cdx.varname The list of NetCDF variable names for the files in \code{cdx.ncfile}.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Define mappings and filenames.
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' variable.name.map <- c(tmax="tasmax", tmin="tasmin", prec="pr")
+#' 
+#' ## Open files, etc.
+#' cdx.funcs <- get.climdex.functions("tmax")
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' climdex.var.list <- get.climdex.variable.list(names(f.meta$v.f.idx), "all", NULL)
+#' cdx.meta <- get.climdex.variable.metadata(climdex.var.list, input.files[1])
+#'
+#' ## Create output files
+#' cdx.ncfile <- create.ncdf.output.files(cdx.meta, f, f.meta$v.f.idx, variable.name.map,
+#'                                        f.meta$ts, get.time.origin(f, f.meta$dim.axes),
+#'                                        c(1981,1990), "/foo", author.data)
+#'
+#' ## Compute indices for stripe
+#' cdx <- compute.indices.for.stripe(list(Y=1), cdx.funcs, f.meta$ts, c(1981, 1990), f.meta$dim.axes,
+#'                            f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units,
+#'                            t.f.idx, NULL, f=f, thresholds.netcdf=NULL)
+#' 
+#' ## Write out indices
+#' write.climdex.results(cdx, list(Y=1), cdx.ncfile, f.meta$dim.size, cdx.meta$varname)
+#' }
 #'
 #' @export
 write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim.size, cdx.varname) {
@@ -684,12 +814,18 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
 
   ## Write out results, variable by variable
   lapply(1:length(cdx.ncfile), function(v) {
-    gc()
     dat <- t(do.call(cbind, lapply(climdex.results, function(cr) { cr[[v]] })))
-    dat.dim <- dim(dat)
+    t.dim.len <- ncdf4.helpers::nc.get.dim.for.axis(cdx.ncfile[[v]], cdx.varname[v], "T")$len
+
+    ## If data is of length 1, it's an error.
     if(length(dat) == 1)
-      print(dat)
-    dim(dat) <- c(xy.dims, dat.dim[2])
+      stop(dat)
+
+    ## Special case of an entire slab missing values... repeat such that we have full data.
+    if(prod(dim(dat)) != prod(c(xy.dims, t.dim.len)))
+      dat <- rep(dat, t.dim.len)
+
+    dim(dat) <- c(xy.dims, t.dim.len)
     ncdf4.helpers::nc.put.var.subset.by.axes(cdx.ncfile[[v]], cdx.varname[v], dat, chunk.subset)
   })
 }
@@ -708,16 +844,35 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
 #' @param variable.name.map A mapping from standardized names (tmax, tmin, prec) to NetCDF variable names.
 #' @param src.units The source units to convert data from.
 #' @param dest.units The destination units to convert to.
-#' @param pad.data.with.first.last.values Whether to make the results identical to those of fclimdex; this affects how the data in the base period is padded.
 #' @param f A list of objects of type \code{ncdf4}, consisting of the open input files. If missing, will be pulled from the global namespace.
 #'
 #' @note This function relies on an object named 'f' and containing the opened NetCDF files being part of the global namespace.
 #'
 #' @examples
-#' ## FIXME
+#' \donttest{
+#' ## Establish basic inputs.
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#'
+#' ## Prepare derived inputs.
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' variable.name.map <- c(tmax="tasmax", tmin="tasmin", prec="pr")
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' threshold.dat <- get.thresholds.metadata(names(f.meta$v.f.idx))
+#'
+#' ## Create output file
+#' thresh.file <- create.thresholds.file("thresh.nc", f, f.meta$ts, f.meta$v.f.idx, variable.name.map,
+#'                                       c(1981,1990), f.meta$dim.size, f.meta$dim.axes,
+#'                                       threshold.dat, author.data)
+#'
+#' ## Compute threshold quantiles for stripe
+#' q <- get.quantiles.for.stripe(list(Y=1), f.meta$ts, c(1981, 1990), f.meta$dim.axes,
+#'                               f.meta$v.f.idx, variable.name.map, f.meta$src.units,
+#'                               f.meta$dest.units, f)
+#' }
 #'
 #' @export
-get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, pad.data.with.first.last.values=FALSE, f) {
+get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, variable.name.map, src.units, dest.units, f) {
   f <- if(missing(f)) get("f", .GlobalEnv) else f
   data.list <- sapply(names(v.f.idx), function(x) { gc(); get.data(f[[v.f.idx[x]]], variable.name.map[x], subset, src.units[x], dest.units[x], dim.axes) }, simplify=FALSE)
   gc()
@@ -726,27 +881,27 @@ get.quantiles.for.stripe <- function(subset, ts, base.range, dim.axes, v.f.idx, 
   if(!is.null(data.list$tmax)) {
     if(!is.null(data.list$tmin)) {
       if(!is.null(data.list$prec)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], data.list$prec[,x], ts, ts, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], data.list$prec[,x], ts, ts, ts, base.range)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], NULL, ts, ts, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], data.list$tmin[,x], NULL, ts, ts, NULL, base.range)))
       }
     } else {
       if(!is.null(data.list$prec)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, data.list$prec[,x], ts, NULL, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, data.list$prec[,x], ts, NULL, ts, base.range)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, NULL, ts, NULL, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(data.list$tmax[,x], NULL, NULL, ts, NULL, NULL, base.range)))
       }
     }
   } else {
     if(!is.null(data.list$tmin)) {
       if(!is.null(data.list$prec)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], data.list$prec[,x], NULL, ts, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], data.list$prec[,x], NULL, ts, ts, base.range)))
       } else {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], NULL, NULL, ts, NULL, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, data.list$tmin[,x], NULL, NULL, ts, NULL, base.range)))
       }
     } else {
       if(!is.null(data.list$prec)) {
-        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, NULL, data.list$prec[,x], NULL, NULL, ts, base.range, pad.data.with.first.last.values=pad.data.with.first.last.values)))
+        return(lapply(r, function(x) climdex.pcic::get.outofbase.quantiles(NULL, NULL, data.list$prec[,x], NULL, NULL, ts, base.range)))
       } else {
         stop("Go home and take your shitty input with you.")
       }
@@ -763,10 +918,49 @@ set.up.cluster <- function(parallel, type="SOCK") {
     cluster <- snow::makeCluster(parallel, type)
 
     snow::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
+    snow::clusterEvalQ(cluster, library(ncdf4))
+    snow::clusterEvalQ(cluster, nc_set_chunk_cache(1024 * 2048, 1009))
   }
   cluster
 }
 
+#' Creates Climdex thresholds output file.
+#'
+#' Creates Climdex thresholds output file.
+#'
+#' This function creates a file suitable for outputting thresholds to, with all variables that can be created with the input data present in the file.
+#'
+#' @param thresholds.file The filename to be used for the thresholds file.
+#' @param f The file(s) being used as sources for metadata.
+#' @param ts The associated time data, as created by \code{nc.get.time.series}.
+#' @param v.f.idx A mapping from variables to files, as created by \code{\link{get.var.file.idx}}.
+#' @param variable.name.map A mapping from standardized names (tmax, tmin, prec) to NetCDF variable names.
+#' @param base.range The base range; a vector of two numeric years.
+#' @param dim.size Dimension sizes for the input.
+#' @param dim.axes Dimension axes for the input.
+#' @param threshold.dat Threshold metadata, as provided by \code{\link{get.thresholds.metadata}}.
+#' @param author.data A vector containing named elements describing the author; see \code{\link{create.indices.from.files}}.
+#' @return An object of class \code{ncdf4}.
+#'
+#' @examples
+#' \donttest{
+#' ## Establish basic inputs.
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#'
+#' ## Prepare derived inputs.
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' variable.name.map <- c(tmax="tasmax", tmin="tasmin", prec="pr")
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' threshold.dat <- get.thresholds.metadata(names(f.meta$v.f.idx))
+#'
+#' ## Create output file
+#' thresh.file <- create.thresholds.file("thresh.nc", f, f.meta$ts, f.meta$v.f.idx, variable.name.map,
+#'                                       c(1981,1990), f.meta$dim.size, f.meta$dim.axes,
+#'                                       threshold.dat, author.data)
+#' }
+#'
+#' @export
 create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.name.map, base.range, dim.size, dim.axes, threshold.dat, author.data) {
   exemplar.file <- f[[v.f.idx[1]]]
   exemplar.var.name <- variable.name.map[names(v.f.idx)[1]]
@@ -784,7 +978,7 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
   time.bnds.name <- if(old.time.bnds.att$hasatt) old.time.bnds.att$value else "time_bnds"
 
   ## Set up time variables
-  out.time <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(paste(floor(mean(base.range)), 1:num.thresholds, sep="-"), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(time.origin, cal))), units="days")
+  out.time <- as.numeric(julian(as.PCICt(paste(floor(mean(base.range)), 1:num.thresholds, sep="-"), attr(ts, "cal"), format="%Y-%j"), as.PCICt(time.origin, cal)), units="days")
   out.time.dim <- ncdf4::ncdim_def("time", paste("days since", time.origin), out.time, unlim=TRUE, calendar=cal, longname="time")
 
   ## Set up bounds
@@ -796,7 +990,7 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
   bnds.dim <- ncdf4::ncdim_def("bnds", "", 1:2, create_dimvar=FALSE)
   if(length(input.bounds) > 0)
     bnds.dim <- exemplar.file$var[[input.bounds[1]]]$dim[[1]]
-  out.time.bnds <- as.numeric(julian(PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(c(paste(base.range[1], 1:num.thresholds, sep="-"), paste(base.range[2], 1:num.thresholds, sep="-")), attr(ts, "cal"), format="%Y-%j")), PCICt::as.POSIXct.PCICt(PCICt::as.PCICt.default(time.origin, cal))), units="days")
+  out.time.bnds <- as.numeric(julian(as.PCICt(c(paste(base.range[1], 1:num.thresholds, sep="-"), paste(base.range[2], 1:num.thresholds, sep="-")), attr(ts, "cal"), format="%Y-%j"), as.PCICt(time.origin, cal)), units="days")
   dim(out.time.bnds) <- c(num.thresholds, 2)
   out.time.bnds <- t(out.time.bnds)
   out.time.bnds.var <- ncdf4::ncvar_def(time.bnds.name, '', list(bnds.dim, out.time.dim), longname='', prec="double")
@@ -858,7 +1052,13 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
 #' @param v.list A list containing a vector of variables in each file.
 #'
 #' @examples
-#' ## FIXME
+#' \dontrun{
+#' ## Get mapping for a single file.
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' v.list <- lapply(f, ncdf4.helpers::nc.get.variable.list, min.dims=2)
+#' v.f.idx <- get.var.file.idx(variable.name.map, v.list)
+#' }
 #'
 #' @export
 get.var.file.idx <- function(variable.name.map, v.list) {
@@ -867,11 +1067,28 @@ get.var.file.idx <- function(variable.name.map, v.list) {
   return(v.f.idx)
 }
 
+#' Retrieve metadata about NetCDF-format files.
+#' 
+#' Retrieve metadata about NetCDF-format files.
+#'
+#' Given a list of NetCDF files and a mapping from standard variable names (tmax, tmin, prec) to NetCDF variable names, retrieve a set of standardized metadata.
+#'
+#' @param f The list of NetCDF files.
+#' @param variable.name.map A named character vector mapping standard variable names (tmax, tmin, prec) to NetCDF variable names.
+#' @return A list containing time data (ts), dimension sizes (dim.size), dimension axes (dim.axes), source units (src.units), destination units (dest.units), a mapping from variables to files (v.f.idx), and a projection, if available.
+#'
+#' @examples
+#' \dontrun{
+#' ## Get metadata about a single input file.
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' f <- lapply(input.files, ncdf4::nc_open)
+#' f.meta <- create.file.metadata(f, variable.name.map)
+#' }
+#'
+#' @export
 create.file.metadata <- function(f, variable.name.map) {
   v.list <- lapply(f, ncdf4.helpers::nc.get.variable.list, min.dims=2)
   v.f.idx <- get.var.file.idx(variable.name.map, v.list)
-
-  ## FIXME: Check that v.f.idx is named as per variable.name.map.
 
   if(any(sapply(v.list, function(vl) { sum(variable.name.map %in% vl) }) == 0))
     stop("At least one input file doesn't contain any of the named variables.")
@@ -890,7 +1107,30 @@ create.file.metadata <- function(f, variable.name.map) {
   
   return(list(ts=get.ts(f), dim.size=get.dim.size(f, v.f.idx, variable.name.map), dim.axes=get.dim.axes(f, v.f.idx, variable.name.map),
               src.units=sapply(names(v.f.idx), function(i) { f[[v.f.idx[i]]]$var[[variable.name.map[i]]]$units }),
-              dest.units=dest.units, v.list=v.list, v.f.idx=v.f.idx, projection=projection))
+              dest.units=dest.units, v.f.idx=v.f.idx, projection=projection))
+}
+
+#' Retrieve threshold metadata
+#'
+#' Retrieve threshold metadata
+#'
+#' Returns units, long names, locations within the climdexInput data structure, and whether time data should be included given the variable information available.
+#'
+#' @param var.names A vector containing names of available variables (tmax, tmin, prec).
+#' @return A list containing metadata for each of the six thresholds.
+#'
+#' @examples
+#' thresholds.meta <- get.thresholds.metadata("prec")
+#'
+#' @export
+get.thresholds.metadata <- function(var.names) {
+  threshold.dat <- list(tx10thresh=list(units="degrees_C", longname="10th_percentile_running_baseline_tasmax", has.time=TRUE, q.path=c("tmax", "outbase", "q10")),
+                        tx90thresh=list(units="degrees_C", longname="90th_percentile_running_baseline_tasmax", has.time=TRUE, q.path=c("tmax", "outbase", "q90")),
+                        tn10thresh=list(units="degrees_C", longname="10th_percentile_running_baseline_tasmin", has.time=TRUE, q.path=c("tmin", "outbase", "q10")),
+                        tn90thresh=list(units="degrees_C", longname="90th_percentile_running_baseline_tasmin", has.time=TRUE, q.path=c("tmin", "outbase", "q90")),
+                        r95thresh=list(units="kg m-2 d-1", longname="95th_percentile_baseline_wet_day_pr", has.time=FALSE, q.path=c("prec", "q95")),
+                        r99thresh=list(units="kg m-2 d-1", longname="99th_percentile_baseline_wet_day_pr", has.time=FALSE, q.path=c("prec", "q99")))
+  return(threshold.dat[sapply(threshold.dat, function(x) { x$q.path[1] %in% var.names })])
 }
 
 unsquash.dims <- function(dat.dim, subset, f, n) {
@@ -920,25 +1160,27 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' @note NetCDF input files may contain one or more variables, named as per \code{variable.name.map}. The code will search the files for the named variables.
 #'
 #' @examples
-#' ## FIXME
+#' \dontrun{
+#' ## Prepare input data and calculate thresholds for file.
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' create.thresholds.from.file(input.files, "thresh.nc", author.data,
+#'                             base.range=c(1991, 2000), parallel=FALSE)
+#' }
 #'
 #' @export
 create.thresholds.from.file <- function(input.files, output.file, author.data, variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, max.vals.millions=10, cluster.type="SOCK") {
-  ## FIXME
-  if(is.character(parallel))
-    parallel <- as.numeric(parallel)
+  if(!(is.logical(parallel) || is.numeric(parallel)))
+    stop("'parallel' option must be logical or numeric.")
+
+  if(length(input.files) == 0)
+    stop("Require at least one input file.")
 
   f <- lapply(input.files, ncdf4::nc_open)
   f.meta <- create.file.metadata(f, variable.name.map)
 
   ## Define what the threshold indices will look like...
-  threshold.dat <- list(tx10thresh=list(units="degrees_C", longname="10th_percentile_running_baseline_tasmax", has.time=TRUE, q.path=c("tmax", "outbase", "q10")),
-                        tx90thresh=list(units="degrees_C", longname="90th_percentile_running_baseline_tasmax", has.time=TRUE, q.path=c("tmax", "outbase", "q90")),
-                        tn10thresh=list(units="degrees_C", longname="10th_percentile_running_baseline_tasmin", has.time=TRUE, q.path=c("tmin", "outbase", "q10")),
-                        tn90thresh=list(units="degrees_C", longname="90th_percentile_running_baseline_tasmin", has.time=TRUE, q.path=c("tmin", "outbase", "q90")),
-                        r95thresh=list(units="kg m-2 d-1", longname="95th_percentile_baseline_wet_day_pr", has.time=FALSE, q.path=c("prec", "q95")),
-                        r99thresh=list(units="kg m-2 d-1", longname="99th_percentile_baseline_wet_day_pr", has.time=FALSE, q.path=c("prec", "q99")))
-
+  threshold.dat <- get.thresholds.metadata()
+  
   ## Trim them down to the indices available with the given input data.
   threshold.dat <- threshold.dat[sapply(threshold.dat, function(x) { x$q.path[1] %in% names(f.meta$v.f.idx) })]
   
@@ -969,11 +1211,11 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
     snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
 
     ## Compute subsets and fire jobs off; collect and write out chunk-at-a-time
-    parLapplyLBFiltered(cluster, subsets, get.quantiles.for.stripe, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, pad.data.with.first.last.values=FALSE, local.filter.func=write.thresholds.data)
+    parLapplyLBFiltered(cluster, subsets, get.quantiles.for.stripe, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, local.filter.func=write.thresholds.data)
 
     snow::stopCluster(cluster)
   } else {
-    lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, pad.data.with.first.last.values=FALSE, f), x) })
+    lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, f), x) })
 
     lapply(f, ncdf4::nc_close)
   }
@@ -984,18 +1226,48 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
   cat("Finished computing thresholds\n")
 }
 
-open.thresholds <- function(thresholds.files) {
-  if(is.null(thresholds.files))
-    return(NULL)
-  f <- lapply(thresholds.files, ncdf4::nc_open)
-  return(f)
+#' Open thresholds file(s)
+#'
+#' Open thresholds file(s)
+#'
+#' This function opens one or more thresholds files and returns the \code{ncdf4} objects as a list.
+#'
+#' @param thresholds.files A character vector containing the names of thresholds files.
+#' @return A list of objects of class \code{ncdf4}, or NULL if thresholds.files is NULL.
+#'
+#' @examples
+#' \dontrun{
+#' ## Open a single thresholds file
+#' thresholds.files <- c("thresh.nc")
+#' thresh <- thresholds.open(thresholds.files)
+#' }
+#'
+#' @export
+thresholds.open <- function(thresholds.files) {
+  return(if(is.null(thresholds.files)) NULL else lapply(thresholds.files, ncdf4::nc_open))
 }
 
-close.thresholds <- function(thresholds.nc) {
-  if(is.null(thresholds.nc))
-    return()
-  lapply(thresholds.nc, ncdf4::nc_close)
+#' Close thresholds file(s)
+#'
+#' Close thresholds file(s)
+#'
+#' This function closes one or more thresholds files.
+#'
+#' @param thresholds.nc A list of objects of class \code{ncdf4}, or NULL
+#'
+#' @examples
+#' \dontrun{
+#' ## Open a single thresholds file, then close it.
+#' thresholds.files <- c("thresh.nc")
+#' thresh <- thresholds.open(thresholds.files)
+#' thresholds.close(thresh)
+#' }
+#'
+#' @export
+thresholds.close <- function(thresholds.nc) {
+  if(!is.null(thresholds.nc)) lapply(thresholds.nc, ncdf4::nc_close)
 }                                           
+
 
 get.time.origin <- function(f, dim.axes) {
   time.units <- f[[1]]$dim[[names(dim.axes)[which(dim.axes == "T")]]]$units
@@ -1008,9 +1280,9 @@ get.thresholds.f.idx <- function(thresholds.files, thresholds.name.map) {
   if(is.null(thresholds.files)) {
     return(NULL)
   } else {
-    thresh <- open.thresholds(thresholds.files)
+    thresh <- thresholds.open(thresholds.files)
     t.f.idx <- get.var.file.idx(thresholds.name.map, lapply(thresh, ncdf4.helpers::nc.get.variable.list, min.dims=2))
-    close.thresholds(thresh)
+    thresholds.close(thresh)
     return(t.f.idx)
   }
 }
@@ -1058,13 +1330,29 @@ get.thresholds.f.idx <- function(thresholds.files, thresholds.name.map) {
 #'
 #' @references \url{http://etccdi.pacificclimate.org/list_27_indices.shtml}
 #' @examples
-#' ## FIXME
+#' \dontrun{
+#' ## Prepare input data and calculate indices for a single file
+#' ## with a single thread (no parallelism).
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' create.indices.from.files(input.files, "out_dir/", input.files[1], author.data,
+#'                           base.period=c(1991, 2000), parallel=FALSE)
+#' 
+#' ## Prepare input data and calculate indices for two files
+#' ## in parallel given thresholds.
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc", "tasmax_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' create.indices.from.files(input.files, "out_dir/", input.files[1], author.data,
+#'                           base.period=c(1991, 2000), parallel=8, thresholds.files="thresh.nc")
+#' }
 #'
 #' @export
 create.indices.from.files <- function(input.files, out.dir, output.filename.template, author.data, climdex.vars.subset=NULL, climdex.time.resolution=c("all", "annual", "monthly"), variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, thresholds.files=NULL, thresholds.name.map=c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh", tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh"), max.vals.millions=10, cluster.type="SOCK") {
-  ## FIXME: Improve this check.
-  if(is.character(parallel))
-    parallel <- as.numeric(parallel)
+  if(!(is.logical(parallel) || is.numeric(parallel)))
+    stop("'parallel' option must be logical or numeric.")
+
+  ncdf4::nc_set_chunk_cache(1024 * 2048, 1009)
+
+  if(length(input.files) == 0)
+    stop("Require at least one input file.")
   
   ## Open files, determine mapping between files and variables.
   f <- lapply(input.files, ncdf4::nc_open)
@@ -1090,7 +1378,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     cluster <- set.up.cluster(parallel, cluster.type)
     snow::clusterExport(cluster, list("input.files", "thresholds.files"), environment())
     snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
-    snow::clusterEvalQ(cluster, thresholds.netcdf <<- open.thresholds(thresholds.files))
+    snow::clusterEvalQ(cluster, thresholds.netcdf <<- thresholds.open(thresholds.files))
 
     ## Meat...
     parLapplyLBFiltered(cluster, subsets, compute.indices.for.stripe, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, local.filter.func=function(x, x.sub) {
@@ -1101,13 +1389,13 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     snow::stopCluster(cluster)
   } else {
     ## Setup...
-    thresholds.netcdf <- open.thresholds(thresholds.files)
+    thresholds.netcdf <- thresholds.open(thresholds.files)
     
     ## Meat...
     lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size, cdx.meta$var.name) })
 
     ## Clean-up.
-    close.thresholds(thresholds.netcdf)
+    thresholds.close(thresholds.netcdf)
     lapply(f, ncdf4::nc_close)
   }
   

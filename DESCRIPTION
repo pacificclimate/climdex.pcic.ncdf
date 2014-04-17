@@ -6,16 +6,16 @@ Author: David Bronaugh <bronaugh@uvic.ca> for the Pacific Climate Impacts
     Consortium (PCIC)
 Maintainer: David Bronaugh <bronaugh@uvic.ca>
 Depends:
-    R (>= 2.12.0)
+    R (>= 2.12.0),
+    PCICt (>= 0.5-4)
 Imports:
-    ncdf4,
-    climdex.pcic,
+    ncdf4 (>= 1.10),
+    climdex.pcic (>= 1.0-4),
     ncdf4.helpers (>= 0.3-3),
-    PCICt,
-    snow,
-    udunits2,
-    functional,
-    proj4
+    snow (>= 0.3-13),
+    udunits2 (>= 0.6),
+    functional (>= 0.4),
+    proj4 (>= 1.0-8)
 Suggests:
     RUnit
 Description: This package contains functions which can be used to compute

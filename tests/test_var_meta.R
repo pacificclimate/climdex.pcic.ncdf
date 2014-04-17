@@ -25,3 +25,7 @@ test.get.climdex.functions <- function() {
   checkEquals(climdex.functions$tmax.tmin.prec.all.fclimdex, get.climdex.functions(climdex.var.list$tmax.tmin.prec.all))
   checkEquals(climdex.functions$tmax.tmin.prec.all.notfclimdex, get.climdex.functions(climdex.var.list$tmax.tmin.prec.all, FALSE))
 }
+
+test.create.cmip5.climdex.filenames <- function() {
+  
+}
