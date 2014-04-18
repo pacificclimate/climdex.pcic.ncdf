@@ -48,6 +48,7 @@ parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL)
 put.history.att <- function(f, v, definemode=FALSE) {
   history.string <- paste("Created by climdex.pcic", packageVersion("climdex.pcic"), "on", date())
   ncdf4::ncatt_put(f, v, "history", history.string, definemode=definemode)
+  invisible(0)
 }
 
 put.ETCCDI.atts <- function(f, freq, orig.title, author.data, definemode=FALSE) {
@@ -69,6 +70,7 @@ put.ETCCDI.atts <- function(f, freq, orig.title, author.data, definemode=FALSE) 
   ncdf4::ncatt_put(f, 0, "frequency", freq, definemode=definemode)
   ncdf4::ncatt_put(f, 0, "creation_date", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz="GMT"), definemode=definemode)
   ncdf4::ncatt_put(f, 0, "title", paste("ETCCDI indices computed on", orig.title), definemode=definemode)
+  invisible(0)
 }
 
 all.the.same <- function(dat) {
@@ -828,6 +830,7 @@ write.climdex.results <- function(climdex.results, chunk.subset, cdx.ncfile, dim
     dim(dat) <- c(xy.dims, t.dim.len)
     ncdf4.helpers::nc.put.var.subset.by.axes(cdx.ncfile[[v]], cdx.varname[v], dat, chunk.subset)
   })
+  invisible(0)
 }
 
 #' Compute Climdex thresholds for a subset / stripe
@@ -1050,6 +1053,7 @@ create.thresholds.file <- function(thresholds.file, f, ts, v.f.idx, variable.nam
 #'
 #' @param variable.name.map A mapping from standardized names (tmax, tmin, prec) to NetCDF variable names.
 #' @param v.list A list containing a vector of variables in each file.
+#' @return A vector mapping standardized variable names (tmax, tmin, prec) to indices in the file list.
 #'
 #' @examples
 #' \dontrun{
@@ -1154,7 +1158,7 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' @param base.range Vector of two numeric years specifying the start and end years.
 #' @param parallel The number of parallel processing threads, or FALSE if no parallel processing is desired.
 #' @param verbose Whether to be chatty.
-#' @param max.vals.millions The number of data values to process at one time (length of time dim * number of values * number of variables).
+ #' @param max.vals.millions The number of data values to process at one time (length of time dim * number of values * number of variables).
 #' @param cluster.type The cluster type, as used by the \code{snow} library.
 #'
 #' @note NetCDF input files may contain one or more variables, named as per \code{variable.name.map}. The code will search the files for the named variables.
@@ -1179,10 +1183,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
   f.meta <- create.file.metadata(f, variable.name.map)
 
   ## Define what the threshold indices will look like...
-  threshold.dat <- get.thresholds.metadata()
-  
-  ## Trim them down to the indices available with the given input data.
-  threshold.dat <- threshold.dat[sapply(threshold.dat, function(x) { x$q.path[1] %in% names(f.meta$v.f.idx) })]
+  threshold.dat <- get.thresholds.metadata(names(f.meta$v.f.idx))
   
   ## Create the output file
   thresholds.netcdf <- create.thresholds.file(output.file, f, f.meta$ts, f.meta$v.f.idx, variable.name.map, base.range, f.meta$dim.size, f.meta$dim.axes, threshold.dat, author.data)
@@ -1224,6 +1225,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
   ncdf4::nc_close(thresholds.netcdf)
 
   cat("Finished computing thresholds\n")
+  invisible(0)
 }
 
 #' Open thresholds file(s)
@@ -1266,6 +1268,7 @@ thresholds.open <- function(thresholds.files) {
 #' @export
 thresholds.close <- function(thresholds.nc) {
   if(!is.null(thresholds.nc)) lapply(thresholds.nc, ncdf4::nc_close)
+  invisible(0)
 }                                           
 
 
@@ -1403,4 +1406,5 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   lapply(cdx.ncfile, ncdf4::nc_close)
 
   cat("Finished computing indices\n")
+  invisible(0)
 }
