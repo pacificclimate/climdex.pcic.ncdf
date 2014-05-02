@@ -10,7 +10,7 @@ Depends:
     PCICt (>= 0.5-4)
 Imports:
     ncdf4 (>= 1.10),
-    climdex.pcic (>= 1.0-4),
+    climdex.pcic (>= 1.1-1),
     ncdf4.helpers (>= 0.3-3),
     snow (>= 0.3-13),
     udunits2 (>= 0.6),

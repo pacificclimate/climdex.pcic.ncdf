@@ -31,7 +31,7 @@ test.thresholds.create.and.indices <- function() {
     thresh.file <- tempfile()
     indices.dir.thresh <- tempdir()
     indices.dir.nothresh <- tempdir()
-    create.thresholds.from.file(input.file.list, thresh.file, author.data, parallel=FALSE, base.range=c(2010, 2029))
+    create.thresholds.from.file(input.file.list, thresh.file, author.data, parallel=FALSE, base.range=c(2010, 2019))
     create.indices.from.files(input.file.list, indices.dir.thresh, input.file.list[1], author.data, parallel=FALSE, thresholds.files=correct.thresh.file.6190)
 
     ## Compare to base data.
@@ -51,7 +51,11 @@ test.thresholds.create.and.indices <- function() {
     })
     
     create.indices.from.files(input.file.list, indices.dir.thresh, input.file.list[1], author.data, parallel=FALSE, thresholds.files=thresh.file)
-    create.indices.from.files(input.file.list, indices.dir.nothresh, input.file.list[1], author.data, parallel=FALSE, base.range=c(2010, 2029))
+    create.indices.from.files(input.file.list, indices.dir.nothresh, input.file.list[1], author.data, parallel=FALSE, base.range=c(2010, 2019))
+
+    unlink(paste(indices.dir.nothresh, "*", sep="/"))
+    unlink(paste(indices.dir.thresh, "*", sep="/"))
+    gc()
   })
 }
 

@@ -88,6 +88,7 @@ all.the.same <- function(dat) {
 #' @return A vector containing filenames corresponding to the variables and filename bits supplied.
 #'
 #' @examples
+#' \dontrun{
 #' library(ncdf4.helpers)
 #' ## Split out filename bits for use below...
 #' fn <- "pr_day_BCCAQ+ANUSPLIN300+MRI-CGCM3_historical+rcp85_r1i1p1_19500101-21001231.nc"
@@ -95,6 +96,7 @@ all.the.same <- function(dat) {
 #'
 #' ## Create filenames with time data and variable appropriately replaced.
 #' filenames <- create.climdex.cmip5.filenames(fn.split, c("rx5dayETCCDI_mon", "tn90pETCCDI_yr"))
+#' }
 #'
 #' @export
 create.climdex.cmip5.filenames <- function(fn.split, vars.list) {
@@ -921,8 +923,8 @@ set.up.cluster <- function(parallel, type="SOCK") {
     cluster <- snow::makeCluster(parallel, type)
 
     snow::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
-    snow::clusterEvalQ(cluster, library(ncdf4))
-    snow::clusterEvalQ(cluster, nc_set_chunk_cache(1024 * 2048, 1009))
+    if("nc_set_chunk_cache" %in% ls(asNamespace("ncdf4")))
+      snow::clusterEvalQ(cluster, ncdf4::nc_set_chunk_cache(1024 * 2048, 1009))
   }
   cluster
 }
@@ -1166,7 +1168,8 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' @examples
 #' \dontrun{
 #' ## Prepare input data and calculate thresholds for file.
-#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
 #' create.thresholds.from.file(input.files, "thresh.nc", author.data,
 #'                             base.range=c(1991, 2000), parallel=FALSE)
 #' }
@@ -1216,6 +1219,9 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
 
     snow::stopCluster(cluster)
   } else {
+    if("nc_set_chunk_cache" %in% ls(asNamespace("ncdf4")))
+      ncdf4::nc_set_chunk_cache(1024 * 2048, 1009)
+
     lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, f), x) })
 
     lapply(f, ncdf4::nc_close)
@@ -1336,13 +1342,16 @@ get.thresholds.f.idx <- function(thresholds.files, thresholds.name.map) {
 #' \dontrun{
 #' ## Prepare input data and calculate indices for a single file
 #' ## with a single thread (no parallelism).
-#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
 #' create.indices.from.files(input.files, "out_dir/", input.files[1], author.data,
 #'                           base.period=c(1991, 2000), parallel=FALSE)
 #' 
 #' ## Prepare input data and calculate indices for two files
 #' ## in parallel given thresholds.
-#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc", "tasmax_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")                                                                                                                                                                                                            #' author.data <- list(institution="Looney Bin", institution_id="LBC")
+#' input.files <- c("pr_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc",
+#'                  "tasmax_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc")
+#' author.data <- list(institution="Looney Bin", institution_id="LBC")
 #' create.indices.from.files(input.files, "out_dir/", input.files[1], author.data,
 #'                           base.period=c(1991, 2000), parallel=8, thresholds.files="thresh.nc")
 #' }
@@ -1352,7 +1361,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   if(!(is.logical(parallel) || is.numeric(parallel)))
     stop("'parallel' option must be logical or numeric.")
 
-  ncdf4::nc_set_chunk_cache(1024 * 2048, 1009)
+  ##ncdf4::nc_set_chunk_cache(1024 * 2048, 1009)
 
   if(length(input.files) == 0)
     stop("Require at least one input file.")
@@ -1393,6 +1402,8 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   } else {
     ## Setup...
     thresholds.netcdf <- thresholds.open(thresholds.files)
+    if("nc_set_chunk_cache" %in% ls(asNamespace("ncdf4")))
+      ncdf4::nc_set_chunk_cache(1024 * 2048, 1009)
     
     ## Meat...
     lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size, cdx.meta$var.name) })
