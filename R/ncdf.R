@@ -531,11 +531,14 @@ get.ts <- function(f) {
 #' 
 #' @export
 compute.climdex.indices <- function(in.dat, cdx.funcs, ts, base.range, fclimdex.compatible) {
-  ci <- climdex.pcic::climdexInput.raw(in.dat$tmax, in.dat$tmin, in.dat$prec,
-                         if(is.null(in.dat$tmax)) NULL else ts,
-                         if(is.null(in.dat$tmin)) NULL else ts,
-                         if(is.null(in.dat$prec)) NULL else ts,
-                         base.range=base.range, northern.hemisphere=in.dat$northern.hemisphere, quantiles=in.dat$quantiles)
+  ci <- climdex.pcic::climdexInput.raw(
+                        in.dat$tmax, in.dat$tmin, in.dat$prec,
+                        if(is.null(in.dat$tmax)) NULL else ts,
+                        if(is.null(in.dat$tmin)) NULL else ts,
+                        if(is.null(in.dat$prec)) NULL else ts,
+                        tavg=in.dat$tavg, tavg.dates=if(is.null(in.dat$tavg)) NULL else ts,
+                        base.range=base.range, northern.hemisphere=in.dat$northern.hemisphere,
+                        quantiles=in.dat$quantiles)
   
   ## NOTE: Names must be stripped here because it increases memory usage on the head by a factor of 8-9x (!)
   return(lapply(cdx.funcs, function(f) { d <- f(ci=ci); names(d) <- NULL; d }))
@@ -1148,7 +1151,7 @@ create.file.metadata <- function(f, variable.name.map) {
     stop("Variable(s) present in more than one input file.")
 
   ## Get units and specify destination units
-  dest.units <- c(prec="kg m-2 d-1", tmax="degrees_C", tmin="degrees_C")
+  dest.units <- c(prec="kg m-2 d-1", tmax="degrees_C", tmin="degrees_C", tavg="degrees_C")
   dest.units <- dest.units[names(dest.units) %in% names(v.f.idx)]
 
   ## Get projection
@@ -1221,7 +1224,7 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' }
 #'
 #' @export
-create.thresholds.from.file <- function(input.files, output.file, author.data, variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, max.vals.millions=10, cluster.type="SOCK") {
+create.thresholds.from.file <- function(input.files, output.file, author.data, variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr", tavg="tas"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, max.vals.millions=10, cluster.type="SOCK") {
   if(!(is.logical(parallel) || is.numeric(parallel)))
     stop("'parallel' option must be logical or numeric.")
 
@@ -1402,7 +1405,7 @@ get.thresholds.f.idx <- function(thresholds.files, thresholds.name.map) {
 #' }
 #'
 #' @export
-create.indices.from.files <- function(input.files, out.dir, output.filename.template, author.data, climdex.vars.subset=NULL, climdex.time.resolution=c("all", "annual", "monthly"), variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, thresholds.files=NULL, thresholds.name.map=c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh", tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh"), max.vals.millions=10, cluster.type="SOCK") {
+create.indices.from.files <- function(input.files, out.dir, output.filename.template, author.data, climdex.vars.subset=NULL, climdex.time.resolution=c("all", "annual", "monthly"), variable.name.map=c(tmax="tasmax", tmin="tasmin", prec="pr", tavg="tas"), axis.to.split.on="Y", fclimdex.compatible=TRUE, base.range=c(1961, 1990), parallel=4, verbose=FALSE, thresholds.files=NULL, thresholds.name.map=c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh", tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh"), max.vals.millions=10, cluster.type="SOCK") {
   if(!(is.logical(parallel) || is.numeric(parallel)))
     stop("'parallel' option must be logical or numeric.")
 

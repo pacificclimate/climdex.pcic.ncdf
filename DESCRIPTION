@@ -1,6 +1,6 @@
 Package: climdex.pcic.ncdf
-Version: 0.5-1
-Date: 2014-06-05
+Version: 0.5-2
+Date: 2014-06-27
 Title: Functions to compute CLIMDEX indices over a NetCDF grid
 Author: David Bronaugh <bronaugh@uvic.ca> for the Pacific Climate Impacts
     Consortium (PCIC)
