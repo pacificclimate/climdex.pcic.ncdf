@@ -638,7 +638,7 @@ get.northern.hemisphere.booleans <- function(subset, f, v, projection) {
   if(!is.null(projection)) {
     x.subset.vals <- rep(x.dim$vals[if(is.null(subset$X)) 1:x.dim$len else subset$X],
                          (if(is.null(subset$Y)) y.dim$len else length(subset$Y)))
-    dat <- proj4::project(list(x=x.subset.vals, y=y.subset.vals), projection, inverse=TRUE)
+    dat <- proj4::project(list(x=x.subset.vals, y=y.subset.vals), projection, inverse=TRUE, ellps.default=NA)
     return(dat$y >= 0)
   } else
     return(y.subset.vals >= 0)
@@ -973,7 +973,7 @@ set.up.cluster <- function(parallel, type="SOCK") {
     cluster <- snow::makeCluster(parallel, type)
 
     snow::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
-    snow::clusterEvalQ(cluster, try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE))
+    ##snow::clusterEvalQ(cluster, try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE))
   }
   cluster
 }
@@ -1268,7 +1268,7 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
 
     snow::stopCluster(cluster)
   } else {
-    try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
+    ##try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
 
     lapply(subsets, function(x) { write.thresholds.data(get.quantiles.for.stripe(x, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, f), x) })
 
@@ -1448,7 +1448,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   } else {
     ## Setup...
     thresholds.netcdf <- thresholds.open(thresholds.files)
-    try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
+    ##try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
     
     ## Meat...
     lapply(subsets, function(x) { write.climdex.results(compute.indices.for.stripe(x, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, f, thresholds.netcdf), x, cdx.ncfile, f.meta$dim.size, cdx.meta$var.name) })
