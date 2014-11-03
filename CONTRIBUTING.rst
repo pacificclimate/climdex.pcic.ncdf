@@ -6,13 +6,12 @@ Getting Started
 
 - Create a `Github account`_.
 - Fork the repository on Github at https://github.com/pacificclimate/climdex.pcic.ncdf.
-- Work on the code (see the :ref:`next section <setup-for-dev>`)
+- Work on the code (see the `next section`_)
 - Send us a `pull request`_.
 
 .. _Github account: https://github.com/signup/free
 .. _pull request: https://help.github.com/articles/using-pull-requests/
-
-.. _setup-for-dev:
+.. _next section: #how-to-set-up-a-development-environment
 
 How to set up a development environment
 ---------------------------------------
@@ -30,7 +29,7 @@ Once you have the required software installed, create a local clone of the repos
 ::
     $ git clone https://github.com/[your_user]/climdex.pcic.ncdf.git
 
-Build the docs (which builds the auto-generated NAMESPACE file needed to build). See :ref:`below <build-the-docs>`.
+Build the docs (which builds the auto-generated NAMESPACE file needed to build). See `below <#how-to-build-the-docs>`_.
 
 Then make sure that everything builds out of the box
 ::
