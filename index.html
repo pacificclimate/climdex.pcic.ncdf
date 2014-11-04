@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>climdex.pcic.ncdf by pacificclimate</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>climdex.pcic.ncdf</h1>
+          <h2>R package to compute Climdex indices on gridded NetCDF files</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/pacificclimate/climdex.pcic.ncdf" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>
+<a name="what-is-climdexpcicncdf" class="anchor" href="#what-is-climdexpcicncdf"><span class="octicon octicon-link"></span></a>What is climdex.pcic.ncdf?</h1>
+
+<ul>
+<li>
+<code>climdex.pcic.ncdf</code> is a companion library for <code>climdex.pcic</code> which helps in using NetCDF input grids and writing to NetCDF output files when computing the <a href="http://etccdi.pacificclimate.org/list_27_indices.shtml">27 core indices of extreme climate</a>. The code allows for parallel computation of indices using either a SOCK or MPI cluster. It was written for the <a href="http://www.r-project.org/">R statistical programming language</a> by the <a href="http://pacificclimate.org/">Pacific Climate Impacts Consortium</a>.</li>
+</ul>
+
+<h1>
+<a name="getting-help" class="anchor" href="#getting-help"><span class="octicon octicon-link"></span></a>Getting Help</h1>
+
+<h2>
+<a name="new-to-programming-or-to-r" class="anchor" href="#new-to-programming-or-to-r"><span class="octicon octicon-link"></span></a>New to programming or to R?</h2>
+
+<ul>
+<li>Read the the <a href="http://software-carpentry.org/index.html">Software Carpentry</a>  <a href="http://software-carpentry.org/v5/novice/r/index.html">Programming in R</a> lessons</li>
+<li>Read one of the man <a href="http://cran.r-project.org/manuals.html">R Manuals</a>.</li>
+<li>Attend an <a href="http://r-users-group.meetup.com/">R Users Group</a> meeting.</li>
+</ul>
+
+<h2>
+<a name="looking-for-code" class="anchor" href="#looking-for-code"><span class="octicon octicon-link"></span></a>Looking for code?</h2>
+
+<ul>
+<li>Get the latest <a href="http://www.pacificclimate.org/%7Ebronaugh/climdex.pcic.ncdf_0.5-4.tar.gz">climdex.pcic.ncdf release from our website</a>.</li>
+<li>Explore the <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/">development repository</a>.</li>
+</ul>
+
+<h2>
+<a name="need-help-using-the-package" class="anchor" href="#need-help-using-the-package"><span class="octicon octicon-link"></span></a>Need help using the package?</h2>
+
+<ul>
+<li>Read the manual</li>
+</ul>
+
+<div class="highlight highlight-R"><pre>    <span class="o">&gt;</span> <span class="kn">library</span><span class="p">(</span>climdex.pcic.ncdf<span class="p">)</span>
+    Loading required package<span class="o">:</span> PCICt
+    <span class="o">&gt;</span> <span class="o">?</span>climdex.pcic.ncdf
+</pre></div>
+
+<ul>
+<li>Create a <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/issues/new">new issue</a> on the <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/issues">package issue tracker</a> and label it "help wanted"[1].</li>
+</ul>
+
+<h2>
+<a name="want-to-contribute" class="anchor" href="#want-to-contribute"><span class="octicon octicon-link"></span></a>Want to contribute?</h2>
+
+<ul>
+<li>To report a bug in pcic.climdex use the <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/issues">package issue tracker</a> (after you've read the <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/blob/master/CONTRIBUTING.rst#bug-reports">bug reporting guide</a>).</li>
+<li>To help with development read through the <a href="https://github.com/pacificclimate/climdex.pcic.ncdf/blob/master/CONTRIBUTING.rst">contributor's guide</a>.</li>
+</ul>
+
+<h2>
+<a name="still-need-help" class="anchor" href="#still-need-help"><span class="octicon octicon-link"></span></a>Still need help?</h2>
+
+<ul>
+<li>Contact <a href="mailto:climate@uvic.ca">climate@uvic.ca</a> and let us know what we can do.</li>
+</ul>
+
+<p>[1] Please know that the pool of people who can provide support for the package is extremely small and time is limited.  We don't necessarily have the capacity for long, open-ended user support. If you keep your questions short, specific and direct, there's a greater probability that someone will take on the ticket.</p>
+        </section>
+
+        <footer>
+          climdex.pcic.ncdf is maintained by <a href="https://github.com/pacificclimate">pacificclimate</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
