@@ -27,8 +27,12 @@ Looking for code?
 
 * Get the latest `climdex.pcic.ncdf release from our website`_.
 * Explore the `development repository`_.
+* Install it with devtools ::
 
-.. _climdex.pcic.ncdf release from our website: http://www.pacificclimate.org/~bronaugh/climdex.pcic.ncdf_0.5-4.tar.gz
+    > library(devtools)
+    > install_github('pacificclimate/climdex.pcic.ncdf', ref='release')
+
+.. _climdex.pcic.ncdf release from our website: http://www.pacificclimate.org/sites/default/files/climdex.pcic_.ncdf_0.5-4.tar_.gz
 .. _development repository: https://github.com/pacificclimate/climdex.pcic.ncdf/
 
 Need help using the package?
