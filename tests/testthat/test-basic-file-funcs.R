@@ -11,7 +11,7 @@ correct.thresh.file.6190 <- paste(correct.data.dir, "thresholds_monClim_CanESM2_
 thresh.omit.list <- c("tx10p", "tn10p", "tx10p", "tx90p", "wsdi", "csdi")
 
 
-test_that("get.thesholds.chunk generates thresholds for a data subset", {
+test_that("get.thresholds.chunk generates thresholds for a data subset", {
 	## Define mappings and filenames.
 	thresholds.name.map <- c(tx10thresh="tx10thresh", tn10thresh="tn10thresh", tx90thresh="tx90thresh",
 			tn90thresh="tn90thresh", r95thresh="r95thresh", r99thresh="r99thresh")

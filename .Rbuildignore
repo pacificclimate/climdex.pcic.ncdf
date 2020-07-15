@@ -2,5 +2,7 @@
 tests/test[0-9]/
 tests/correct_output/
 ^\.github$
+tests/testthat/output/gslETCCDI_yr_CanESM2_historical+rcp85_r1i1p1_1950-2000.nc
+tests/testthat/output/tn10pETCCDI_yr_CanESM2_historical+rcp85_r1i1p1_1950-2000.nc
 CONTRIBUTING.rst
 README.rst

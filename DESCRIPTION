@@ -1,6 +1,6 @@
 Package: climdex.pcic.ncdf
 Version: 0.5-5
-Date: 2020-06-08
+Date: 2020-07-15
 Title: Functions to Compute CLIMDEX Indices Over a 'NetCDF' Grid
 Author: David Bronaugh <bronaugh@uvic.ca> for the Pacific Climate Impacts
     Consortium (PCIC)
@@ -12,7 +12,7 @@ Imports:
     ncdf4 (>= 1.10),
     climdex.pcic (>= 1.1-1),
     ncdf4.helpers (>= 0.3-3),
-    snow (>= 0.3-13),
+    parallel (>= 2.0.0),
     udunits2 (>= 0.6),
     functional (>= 0.4),
     proj4 (>= 1.0-8)
@@ -21,8 +21,8 @@ Suggests:
 Description: Contains functions which can be used to compute
     'CLIMDEX' indices <https://www.climdex.org/learn/indices/> using 
     'NetCDF' <https://www.unidata.ucar.edu/software/netcdf/> input files, 
-    writing to NetCDF output files. Code allows for parallel computation 
-    of indices using either a SOCK or MPI cluster.
+    writing to 'NetCDF' output files. Code allows for parallel computation 
+    of indices using either a 'SOCK' or 'MPI' cluster.
 License: GPL-3
 URL: https://www.r-project.org
 BugReports: https://github.com/pacificclimate/climdex.pcic.ncdf/issues

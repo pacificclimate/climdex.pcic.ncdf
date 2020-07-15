@@ -13,7 +13,7 @@
 #' computation of Climdex indices. This package is complementary to it, providing
 #' easy access to functions to compute indices in parallel, using NetCDF files as
 #' input and output. It implements chunked processing of input files to keep memory
-#' usage reasonable; it implements parallel computation using the \code{snow}
+#' usage reasonable; it implements parallel computation using the \code{parallel}
 #' library; and it includes a test suite to verify correctness of the implementation.
 #' Furthermore, the package has a modular design, allowing for easy extension to
 #' allow for adaptation to changing or custom requirements.
@@ -43,13 +43,13 @@
 #' temperature extremes. Journal of Climate 18.11 (2005):1641-.
 #' @keywords climate ts
 #' @importClassesFrom climdex.pcic climdexInput
-#' @import snow PCICt
+#' @import parallel PCICt
 NULL
 
 ## Parallel lapply across 'x', running remote.func, and filtering with local.filter.func .
 ## Processing is incremental, not batch, to improve parallel throughput and reduce memory consumption.
 parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL) {
-  snow::checkCluster(cl)
+  parallel:::checkCluster(cl)
   cluster.size <- length(cl)
   num.tasks <- length(x)
   if(num.tasks == 0)
@@ -60,7 +60,7 @@ parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL)
   data.to.return <- vector("list", num.tasks)
 
   submit.job <- function(cluster.id, task.id) {
-    snow::sendCall(cl[[cluster.id]], remote.func, args=c(x[task.id], list(...)), tag=task.id)
+    parallel:::sendCall(cl[[cluster.id]], remote.func, args=c(x[task.id], list(...)), tag=task.id)
   }
   
   ## Fire off jobs, filling in the cur.task table as we go.
@@ -71,7 +71,7 @@ parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL)
   
   ## Stalk and feed jobs
   for(i in 1:num.tasks) {
-    d <- snow::recvOneResult(cl)
+    d <- parallel:::recvOneResult(cl)
     next.task <- next.task + 1
     
     ## Feed the finished node another task if we have one.
@@ -970,9 +970,9 @@ set.up.cluster <- function(parallel, type="SOCK") {
 
   if(!is.logical(parallel)) {
     cat(paste("Creating cluster of", parallel, "nodes of type", type, "\n"))
-    cluster <- snow::makeCluster(parallel, type)
+    cluster <- parallel::makeCluster(parallel, type)
 
-    snow::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
+    parallel::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
     ##snow::clusterEvalQ(cluster, try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE))
   }
   cluster
@@ -1210,7 +1210,7 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' @param parallel The number of parallel processing threads, or FALSE if no parallel processing is desired.
 #' @param verbose Whether to be chatty.
  #' @param max.vals.millions The number of data values to process at one time (length of time dim * number of values * number of variables).
-#' @param cluster.type The cluster type, as used by the \code{snow} library.
+#' @param cluster.type The cluster type, as used by the \code{parallel} library.
 #'
 #' @note NetCDF input files may contain one or more variables, named as per \code{variable.name.map}. The code will search the files for the named variables.
 #'
@@ -1260,13 +1260,13 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
     lapply(f, ncdf4::nc_close)
     rm(f)
 
-    snow::clusterExport(cluster, "input.files", environment())
-    snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
+    parallel::clusterExport(cluster, "input.files", environment())
+    parallel::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
 
     ## Compute subsets and fire jobs off; collect and write out chunk-at-a-time
     parLapplyLBFiltered(cluster, subsets, get.quantiles.for.stripe, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, local.filter.func=write.thresholds.data)
 
-    snow::stopCluster(cluster)
+    parallel::stopCluster(cluster)
   } else {
     ##try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
 
@@ -1381,7 +1381,7 @@ get.thresholds.f.idx <- function(thresholds.files, thresholds.name.map) {
 #' \item{r99thresh}{99th percentile of daily precipitation in wet days (>=1 mm of rain).}
 #' }
 #' @param max.vals.millions The number of data values to process at one time (length of time dim * number of values * number of variables).
-#' @param cluster.type The cluster type, as used by the \code{snow} library.
+#' @param cluster.type The cluster type, as used by the \code{parallel} library.
 #'
 #' @note NetCDF input files may contain one or more variables, named as per \code{variable.name.map}. The code will search the files for the named variables. The same is true of thresholds files; one file may be supplied, or multiple files may be supplied, via the \code{thresholds.files} argument; and the name mapping may be supplied via the \code{thresholds.name.map} argument.
 #'
@@ -1434,9 +1434,9 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     lapply(f, ncdf4::nc_close)
     rm(f)
     cluster <- set.up.cluster(parallel, cluster.type)
-    snow::clusterExport(cluster, list("input.files", "thresholds.files"), environment())
-    snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
-    snow::clusterEvalQ(cluster, thresholds.netcdf <<- thresholds.open(thresholds.files))
+    parallel::clusterExport(cluster, list("input.files", "thresholds.files"), environment())
+    parallel::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
+    parallel::clusterEvalQ(cluster, thresholds.netcdf <<- thresholds.open(thresholds.files))
 
     ## Meat...
     parLapplyLBFiltered(cluster, subsets, compute.indices.for.stripe, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, local.filter.func=function(x, x.sub) {
@@ -1444,7 +1444,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     })
 
     ## Clean-up.
-    snow::stopCluster(cluster)
+    parallel::stopCluster(cluster)
   } else {
     ## Setup...
     thresholds.netcdf <- thresholds.open(thresholds.files)
