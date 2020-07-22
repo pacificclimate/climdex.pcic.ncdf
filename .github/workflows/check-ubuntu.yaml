@@ -12,6 +12,10 @@ jobs:
       - uses: actions/checkout@v2
       - uses: r-lib/actions/setup-r@master
 
+      - name: Install system libraries
+        run: |
+          sudo apt-get install netcdf-bin
+
       - name: Query dependencies
         run: |
           install.packages('remotes')
