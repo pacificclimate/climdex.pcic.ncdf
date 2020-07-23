@@ -1,3 +1,4 @@
 .git
 tests/test[0-9]/
 tests/correct_output/
+^\.github$
