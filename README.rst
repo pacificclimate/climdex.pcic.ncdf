@@ -1,11 +1,12 @@
+.. image:: https://github.com/pacificclimate/climdex.pcic.ncdf/workflows/R%20CI/badge.svg
+    :target: https://github.com/pacificclimate/climdex.pcic.ncdf
+
+.. image:: https://github.com/pacificclimate/climdex.pcic.ncdf/workflows/R%20CI%20CRAN/badge.svg
+    :target: https://github.com/pacificclimate/climdex.pcic.ncdf
+
+
 What is climdex.pcic.ncdf?
 =====================
-.. image:: https://github.com/pacificclimate/climdex.pcic.ncdf/.github/workflows/R%20CI/badge.svg
-    :target: https://github.com/pacificclimate/climdex.pcic.ncdf
-
-.. image:: https://github.com/pacificclimate/climdex.pcic.ncdf/.github/workflows/R%20CI%20CRAN/badge.svg
-    :target: https://github.com/pacificclimate/climdex.pcic.ncdf
-
 * `climdex.pcic.ncdf` is a companion library for `climdex.pcic` which helps in using NetCDF input grids and writing to NetCDF output files when computing the `27 core indices of extreme climate`_. The code allows for parallel computation of indices using either a SOCK or MPI cluster. It was written for the `R statistical programming language`_ by the `Pacific Climate Impacts Consortium`_.
 
 .. _27 core indices of extreme climate: http://etccdi.pacificclimate.org/list_27_indices.shtml
