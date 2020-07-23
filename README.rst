@@ -1,5 +1,7 @@
 What is climdex.pcic.ncdf?
 =====================
+![R CI](https://github.com/pacificclimate/climdex.pcic.ncdf/.github/workflows/R%20CI/badge.svg)
+![R CI CRAN](https://github.com/pacificclimate/climdex.pcic.ncdf/.github/workflows/R%20CI%20CRAN/badge.svg)
 
 * `climdex.pcic.ncdf` is a companion library for `climdex.pcic` which helps in using NetCDF input grids and writing to NetCDF output files when computing the `27 core indices of extreme climate`_. The code allows for parallel computation of indices using either a SOCK or MPI cluster. It was written for the `R statistical programming language`_ by the `Pacific Climate Impacts Consortium`_.
 

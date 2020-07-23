@@ -1,5 +1,5 @@
 # based on check-standard from the r-lib examples
-name: CRAN standards check
+name: R CI CRAN
 on: push
 
 jobs:
