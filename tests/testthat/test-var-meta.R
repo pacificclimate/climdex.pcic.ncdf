@@ -16,7 +16,7 @@ test_that("get.climdex.variable.list returns all needed data", {
 	expect_equal(NULL, get.climdex.variable.list(c()))
 })
 
-test_that("climdex.var.meta access variable metadata", {
+test_that("climdex.var.meta accesses variable metadata", {
 	fn1 <- "tasmax_NAM44_CanRCM4_ERAINT_r1i1p1_1989-2009.nc"
 	fn2 <- "pr_day_CanESM2_rcp85_r2i1p1_20060101-21001231.nc"
 	expect_equal(climdex.var.meta$tavg.all.1, get.climdex.variable.metadata(climdex.var.list$tavg.all, fn1))

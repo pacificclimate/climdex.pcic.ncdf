@@ -973,7 +973,6 @@ set.up.cluster <- function(parallel, type="SOCK") {
     cluster <- parallel::makeCluster(parallel, type)
 
     parallel::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
-    ##snow::clusterEvalQ(cluster, try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE))
   }
   cluster
 }

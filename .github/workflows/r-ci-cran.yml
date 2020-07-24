@@ -61,6 +61,15 @@ jobs:
           remotes::install_cran("rcmdcheck")
         shell: Rscript {0}
 
+      - name: Build Documentation
+        if: runner.os != 'Windows'
+        run: |
+          Rscript -e 'install.packages("devtools");devtools::document()'
+      - name: Build Documentation
+        if: runner.os == 'Windows'
+        run: |
+          Rscript -e 'install.packages(\\\"devtools\\\");devtools::document()'
+
       - name: Check
         env:
           _R_CHECK_CRAN_INCOMING_REMOTE_: false
