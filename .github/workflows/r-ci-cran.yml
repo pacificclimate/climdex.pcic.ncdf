@@ -64,11 +64,11 @@ jobs:
       - name: Build Documentation
         if: runner.os != 'Windows'
         run: |
-          Rscript -e 'install.packages("devtools");devtools::document()'
+          Rscript -e 'install.packages("devtools");devtools::document(roclets=c("rd"))'
       - name: Build Documentation
         if: runner.os == 'Windows'
         run: |
-          Rscript -e 'install.packages(\\\"devtools\\\");devtools::document()'
+          Rscript -e 'install.packages(\\\"devtools\\\");devtools::document(roclets=c("rd"))'
 
       - name: Check
         env:
