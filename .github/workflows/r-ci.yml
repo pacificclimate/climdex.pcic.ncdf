@@ -39,7 +39,7 @@ jobs:
 
       - name: Build Documentation
         run: |
-          Rscript -e 'install.packages("devtools");devtools::document()'
+          Rscript -e 'install.packages("devtools");devtools::document(roclets=c("rd"))'
         
       - name: Check
         run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")
