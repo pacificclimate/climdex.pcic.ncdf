@@ -23,7 +23,7 @@ export(thresholds.close)
 export(thresholds.open)
 export(write.climdex.results)
 import(PCICt)
-import(parallel)
+import(snow)
 importClassesFrom(climdex.pcic,climdexInput)
 
 importFrom("stats", "ts")

@@ -1,5 +1,5 @@
 library(climdex.pcic)
-library(parallel)
+library(snow)
 library(ncdf4)
 
 # slow end-to-end tests. Can't be run on CRAN, too slow.

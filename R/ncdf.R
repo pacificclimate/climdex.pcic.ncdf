@@ -43,13 +43,13 @@
 #' temperature extremes. Journal of Climate 18.11 (2005):1641-.
 #' @keywords climate ts
 #' @importClassesFrom climdex.pcic climdexInput
-#' @import parallel PCICt
+#' @import snow PCICt
 NULL
 
 ## Parallel lapply across 'x', running remote.func, and filtering with local.filter.func .
 ## Processing is incremental, not batch, to improve parallel throughput and reduce memory consumption.
 parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL) {
-  parallel:::checkCluster(cl)
+  snow::checkCluster(cl)
   cluster.size <- length(cl)
   num.tasks <- length(x)
   if(num.tasks == 0)
@@ -60,7 +60,7 @@ parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL)
   data.to.return <- vector("list", num.tasks)
 
   submit.job <- function(cluster.id, task.id) {
-    parallel:::sendCall(cl[[cluster.id]], remote.func, args=c(x[task.id], list(...)), tag=task.id)
+    snow::sendCall(cl[[cluster.id]], remote.func, args=c(x[task.id], list(...)), tag=task.id)
   }
   
   ## Fire off jobs, filling in the cur.task table as we go.
@@ -71,7 +71,7 @@ parLapplyLBFiltered <- function(cl, x, remote.func, ..., local.filter.func=NULL)
   
   ## Stalk and feed jobs
   for(i in 1:num.tasks) {
-    d <- parallel:::recvOneResult(cl)
+    d <- snow::recvOneResult(cl)
     next.task <- next.task + 1
     
     ## Feed the finished node another task if we have one.
@@ -970,9 +970,9 @@ set.up.cluster <- function(parallel, type="SOCK") {
 
   if(!is.logical(parallel)) {
     cat(paste("Creating cluster of", parallel, "nodes of type", type, "\n"))
-    cluster <- parallel::makeCluster(parallel, type)
+    cluster <- snow::makeCluster(parallel, type)
 
-    parallel::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
+    snow::clusterEvalQ(cluster, library(climdex.pcic.ncdf))
   }
   cluster
 }
@@ -1209,7 +1209,7 @@ unsquash.dims <- function(dat.dim, subset, f, n) {
 #' @param parallel The number of parallel processing threads, or FALSE if no parallel processing is desired.
 #' @param verbose Whether to be chatty.
  #' @param max.vals.millions The number of data values to process at one time (length of time dim * number of values * number of variables).
-#' @param cluster.type The cluster type, as used by the \code{parallel} library.
+#' @param cluster.type The cluster type, as used by the \code{snow} library.
 #'
 #' @note NetCDF input files may contain one or more variables, named as per \code{variable.name.map}. The code will search the files for the named variables.
 #'
@@ -1259,13 +1259,13 @@ create.thresholds.from.file <- function(input.files, output.file, author.data, v
     lapply(f, ncdf4::nc_close)
     rm(f)
 
-    parallel::clusterExport(cluster, "input.files", environment())
-    parallel::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
+    snow::clusterExport(cluster, "input.files", environment())
+    snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
 
     ## Compute subsets and fire jobs off; collect and write out chunk-at-a-time
     parLapplyLBFiltered(cluster, subsets, get.quantiles.for.stripe, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, local.filter.func=write.thresholds.data)
 
-    parallel::stopCluster(cluster)
+    snow::stopCluster(cluster)
   } else {
     ##try(getFromNamespace('nc_set_chunk_cache', 'ncdf4')(1024 * 2048, 1009), silent=TRUE)
 
@@ -1426,16 +1426,16 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
   cdx.ncfile <- create.ncdf.output.files(cdx.meta, f, f.meta$v.f.idx, variable.name.map, f.meta$ts, get.time.origin(f, f.meta$dim.axes), base.range, out.dir, author.data)
   cdx.funcs <- get.climdex.functions(climdex.var.list)
   
-  ## Compute indices, either single process or multi-process using 'parallel'
+  ## Compute indices, either single process or multi-process using 'snow'
   subsets <- ncdf4.helpers::get.cluster.worker.subsets(max.vals.millions * 1000000, f.meta$dim.size, f.meta$dim.axes, axis.to.split.on)
   if(is.numeric(parallel)) {
     ## Setup...
     lapply(f, ncdf4::nc_close)
     rm(f)
     cluster <- set.up.cluster(parallel, cluster.type)
-    parallel::clusterExport(cluster, list("input.files", "thresholds.files"), environment())
-    parallel::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
-    parallel::clusterEvalQ(cluster, thresholds.netcdf <<- thresholds.open(thresholds.files))
+    snow::clusterExport(cluster, list("input.files", "thresholds.files"), environment())
+    snow::clusterEvalQ(cluster, f <<- lapply(input.files, ncdf4::nc_open, readunlim=FALSE))
+    snow::clusterEvalQ(cluster, thresholds.netcdf <<- thresholds.open(thresholds.files))
 
     ## Meat...
     parLapplyLBFiltered(cluster, subsets, compute.indices.for.stripe, cdx.funcs, f.meta$ts, base.range, f.meta$dim.axes, f.meta$v.f.idx, variable.name.map, f.meta$src.units, f.meta$dest.units, t.f.idx, thresholds.name.map, fclimdex.compatible, f.meta$projection, local.filter.func=function(x, x.sub) {
@@ -1443,7 +1443,7 @@ create.indices.from.files <- function(input.files, out.dir, output.filename.temp
     })
 
     ## Clean-up.
-    parallel::stopCluster(cluster)
+    snow::stopCluster(cluster)
   } else {
     ## Setup...
     thresholds.netcdf <- thresholds.open(thresholds.files)
